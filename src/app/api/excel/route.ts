@@ -39,7 +39,7 @@ export async function GET(request: Request) {
           'Ситуация': s.situation,
           'Текст скрипта / фраза': s.content,
           'Методический совет': s.methodTip || '',
-          'Категория': s.category.name,
+          'Категория': s.category?.name || 'Без категории',
           'Автор': s.author ? s.author.name : 'Система',
           'Опубликован': s.isPublished ? 'Да' : 'Нет',
           'Средний рейтинг': avgRating,
@@ -123,7 +123,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Excel файл не содержит данных' }, { status: 400 });
     }
 
-    // Default category if mapped category not found
     const categories = await prisma.category.findMany();
     const defaultCategory = categories[0];
 
@@ -140,7 +139,6 @@ export async function POST(request: Request) {
         continue;
       }
 
-      // Find matching category or use default
       let matchedCategory = categories.find(
         (c) => c.name.toLowerCase() === String(categoryName || '').toLowerCase()
       );
@@ -152,7 +150,7 @@ export async function POST(request: Request) {
           situation: String(situation),
           content: String(content),
           methodTip: methodTip ? String(methodTip) : null,
-          categoryId: matchedCategory.id,
+          categoryId: matchedCategory?.id,
           authorId: user.id,
           isPublished: true,
         },
