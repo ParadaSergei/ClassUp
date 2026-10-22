@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
+import ScriptFormModal from '@/components/ScriptFormModal';
+import { ScriptItem } from '@/components/ScriptCard';
 import {
   Users,
   FileSpreadsheet,
@@ -14,6 +16,12 @@ import {
   ShieldCheck,
   CheckCircle2,
   X,
+  FileText,
+  Eye,
+  EyeOff,
+  Lock,
+  Unlock,
+  MessageSquare,
 } from 'lucide-react';
 import {
   BarChart,
@@ -26,9 +34,10 @@ import {
 } from 'recharts';
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'excel'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'scripts' | 'excel'>('analytics');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
+  const [adminScripts, setAdminScripts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // User modal state
@@ -37,20 +46,28 @@ export default function AdminPage() {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
-  const [userRole, setUserRole] = useState('TEACHER');
+  const [userRole, setUserRole] = useState('USER');
+  const [userIsActive, setUserIsActive] = useState(true);
   const [userError, setUserError] = useState('');
 
+  // Script modal state
+  const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
+  const [scriptToEdit, setScriptToEdit] = useState<ScriptItem | null>(null);
+
   // Excel file upload state
+  const [importType, setImportType] = useState<'scripts' | 'users'>('scripts');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importStatus, setImportStatus] = useState<string>('');
+  const [importErrors, setImportErrors] = useState<string[]>([]);
   const [isImporting, setIsImporting] = useState<boolean>(false);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [statsRes, usersRes] = await Promise.all([
+      const [statsRes, usersRes, scriptsRes] = await Promise.all([
         fetch('/api/admin/stats'),
         fetch('/api/admin/users'),
+        fetch('/api/admin/scripts'),
       ]);
 
       if (statsRes.ok) {
@@ -60,7 +77,12 @@ export default function AdminPage() {
 
       if (usersRes.ok) {
         const usersData = await usersRes.json();
-        setUsers(usersData.users);
+        setUsers(usersData.users || []);
+      }
+
+      if (scriptsRes.ok) {
+        const scriptsData = await scriptsRes.json();
+        setAdminScripts(scriptsData.scripts || []);
       }
     } catch (err) {
       console.error('Error fetching admin data:', err);
@@ -73,6 +95,7 @@ export default function AdminPage() {
     fetchData();
   }, []);
 
+  // Save User (Create / Edit)
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setUserError('');
@@ -89,6 +112,7 @@ export default function AdminPage() {
           email: userEmail,
           password: userPassword,
           role: userRole,
+          isActive: userIsActive,
         }),
       });
 
@@ -110,7 +134,8 @@ export default function AdminPage() {
     setUserName('');
     setUserEmail('');
     setUserPassword('');
-    setUserRole('TEACHER');
+    setUserRole('USER');
+    setUserIsActive(true);
     setUserError('');
   };
 
@@ -120,7 +145,23 @@ export default function AdminPage() {
     setUserEmail(user.email);
     setUserPassword('');
     setUserRole(user.role);
+    setUserIsActive(user.isActive !== undefined ? user.isActive : true);
     setIsUserModalOpen(true);
+  };
+
+  const handleToggleUserActive = async (user: any) => {
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !user.isActive }),
+      });
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (err) {
+      console.error('Error toggling user status:', err);
+    }
   };
 
   const handleDeleteUser = async (id: string) => {
@@ -138,19 +179,51 @@ export default function AdminPage() {
     }
   };
 
-  const handleExportExcel = (type: 'scripts' | 'users') => {
+  // Toggle Script Published status
+  const handleTogglePublishScript = async (script: any) => {
+    try {
+      const res = await fetch(`/api/admin/scripts/${script.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPublished: !script.isPublished }),
+      });
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (err) {
+      console.error('Error toggling publish status:', err);
+    }
+  };
+
+  const handleDeleteScript = async (id: string) => {
+    if (!confirm('Вы действительно хотите удалить этот скрипт?')) return;
+    try {
+      const res = await fetch(`/api/admin/scripts/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (err) {
+      console.error('Error deleting script:', err);
+    }
+  };
+
+  // Excel Export
+  const handleExportExcel = (type: 'scripts' | 'users' | 'comments') => {
     window.open(`/api/excel/export?type=${type}`, '_blank');
   };
 
+  // Excel Import
   const handleImportExcel = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!importFile) return;
 
     setIsImporting(true);
     setImportStatus('');
+    setImportErrors([]);
 
     const formData = new FormData();
     formData.append('file', importFile);
+    formData.append('type', importType);
 
     try {
       const res = await fetch('/api/excel', {
@@ -164,7 +237,10 @@ export default function AdminPage() {
         throw new Error(data.error || 'Ошибка при импорте Excel');
       }
 
-      setImportStatus(`Успешно! ${data.message}`);
+      setImportStatus(data.message);
+      if (data.errors) {
+        setImportErrors(data.errors);
+      }
       setImportFile(null);
       fetchData();
     } catch (err: any) {
@@ -191,7 +267,7 @@ export default function AdminPage() {
           </div>
 
           {/* Nav Tabs */}
-          <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 p-1.5 rounded-2xl border border-slate-200/80 dark:border-zinc-800 shadow-xs">
+          <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-zinc-900 p-1.5 rounded-2xl border border-slate-200/80 dark:border-zinc-800 shadow-xs">
             <button
               onClick={() => setActiveTab('analytics')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
@@ -213,6 +289,17 @@ export default function AdminPage() {
             >
               <Users className="w-4 h-4" />
               Пользователи ({users.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('scripts')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === 'scripts'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              Скрипты ({adminScripts.length})
             </button>
             <button
               onClick={() => setActiveTab('excel')}
@@ -342,7 +429,7 @@ export default function AdminPage() {
                   <div>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-zinc-100">Управление пользователями</h3>
                     <p className="text-xs text-slate-500 dark:text-zinc-400">
-                      Назначение ролей, создание и удаление учетных записей
+                      Назначение ролей, блокировка пользователей, создание и удаление учетных записей
                     </p>
                   </div>
                   <button
@@ -364,6 +451,7 @@ export default function AdminPage() {
                         <th className="py-3 px-4">Имя / ФИО</th>
                         <th className="py-3 px-4">Email</th>
                         <th className="py-3 px-4">Роль</th>
+                        <th className="py-3 px-4">Статус</th>
                         <th className="py-3 px-4">Активность</th>
                         <th className="py-3 px-4 text-right">Действия</th>
                       </tr>
@@ -386,8 +474,22 @@ export default function AdminPage() {
                                   : 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300'
                               }`}
                             >
-                              {u.role === 'ADMIN' ? 'Администратор' : 'Учитель'}
+                              {u.role === 'ADMIN' ? 'Администратор' : 'Педагог'}
                             </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <button
+                              onClick={() => handleToggleUserActive(u)}
+                              title={u.isActive ? 'Заблокировать пользователя' : 'Разблокировать пользователя'}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+                                u.isActive
+                                  ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300'
+                                  : 'bg-rose-100 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300'
+                              }`}
+                            >
+                              {u.isActive ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                              <span>{u.isActive ? 'Активен' : 'Заблокирован'}</span>
+                            </button>
                           </td>
                           <td className="py-3.5 px-4 text-xs text-slate-500 dark:text-zinc-400">
                             Скрипты: {u._count?.scripts || 0} • Оценки: {u._count?.ratings || 0}
@@ -396,12 +498,107 @@ export default function AdminPage() {
                             <button
                               onClick={() => handleEditUserClick(u)}
                               className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800"
+                              title="Редактировать"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteUser(u.id)}
                               className="p-1.5 text-slate-500 hover:text-rose-600 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                              title="Удалить"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* SCRIPTS MANAGEMENT TAB */}
+            {activeTab === 'scripts' && (
+              <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 border border-slate-200/80 dark:border-zinc-800 shadow-xs">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-zinc-100">Управление скриптами</h3>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400">
+                      Модерация, публикация/скрытие, редактирование и удаление скриптов в базе
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setScriptToEdit(null);
+                      setIsScriptModalOpen(true);
+                    }}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Добавить новый скрипт
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 dark:border-zinc-800 text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+                        <th className="py-3 px-4">Заголовок / Ситуация</th>
+                        <th className="py-3 px-4">Категория</th>
+                        <th className="py-3 px-4">Автор</th>
+                        <th className="py-3 px-4">Статус публикации</th>
+                        <th className="py-3 px-4">Статистика</th>
+                        <th className="py-3 px-4 text-right">Действия</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800 text-sm text-slate-700 dark:text-zinc-300">
+                      {adminScripts.map((s) => (
+                        <tr key={s.id} className="hover:bg-slate-50/80 dark:hover:bg-zinc-800/40 transition-colors">
+                          <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-zinc-100 max-w-xs">
+                            <div className="line-clamp-1">{s.title}</div>
+                            <div className="text-xs font-normal text-slate-500 dark:text-zinc-400 line-clamp-1">
+                              {s.situation}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 text-xs font-medium text-slate-600 dark:text-zinc-400">
+                            {s.category}
+                          </td>
+                          <td className="py-3.5 px-4 text-xs text-slate-600 dark:text-zinc-400">
+                            {s.author}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <button
+                              onClick={() => handleTogglePublishScript(s)}
+                              title={s.isPublished ? 'Скрыть от пользователей' : 'Опубликовать'}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+                                s.isPublished
+                                  ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300'
+                                  : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-400'
+                              }`}
+                            >
+                              {s.isPublished ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                              <span>{s.isPublished ? 'Опубликован' : 'Скрыт'}</span>
+                            </button>
+                          </td>
+                          <td className="py-3.5 px-4 text-xs text-slate-500 dark:text-zinc-400">
+                            ⭐ {s.avgRating} ({s.ratingsCount}) • 💬 {s.commentsCount}
+                          </td>
+                          <td className="py-3.5 px-4 text-right space-x-2">
+                            <button
+                              onClick={() => {
+                                setScriptToEdit(s);
+                                setIsScriptModalOpen(true);
+                              }}
+                              className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800"
+                              title="Редактировать"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteScript(s.id)}
+                              className="p-1.5 text-slate-500 hover:text-rose-600 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                              title="Удалить"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -427,7 +624,7 @@ export default function AdminPage() {
                       Экспорт данных в Excel (.xlsx)
                     </h3>
                     <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed mb-6">
-                      Выгрузите полную базу данных скриптов, ситуаций, рейтингов и пользователей в удобную таблицу Microsoft Excel для дальнейшего методического анализа.
+                      Выгрузите таблицы скриптов, пользователей или комментариев в удобную таблицу Microsoft Excel для проведения методического анализа.
                     </p>
                   </div>
 
@@ -446,6 +643,13 @@ export default function AdminPage() {
                       <Users className="w-4 h-4" />
                       Скачать список пользователей (.xlsx)
                     </button>
+                    <button
+                      onClick={() => handleExportExcel('comments')}
+                      className="w-full py-3 bg-indigo-600 text-white rounded-2xl text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Скачать базу комментариев (.xlsx)
+                    </button>
                   </div>
                 </div>
 
@@ -456,14 +660,28 @@ export default function AdminPage() {
                       <Upload className="w-6 h-6" />
                     </div>
                     <h3 className="text-xl font-black text-slate-900 dark:text-zinc-100 mb-2">
-                      Импорт скриптов из Excel
+                      Массовый импорт из Excel
                     </h3>
                     <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed mb-4">
-                      Загрузите готовый документ Excel (.xlsx) с колонками: «Заголовок», «Ситуация», «Текст скрипта / фраза», «Методический совет», «Категория».
+                      Выберите тип загружаемых данных (скрипты или пользователи) и прикрепите документ Excel (.xlsx).
                     </p>
                   </div>
 
                   <form onSubmit={handleImportExcel} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                        Тип импортируемых данных
+                      </label>
+                      <select
+                        value={importType}
+                        onChange={(e) => setImportType(e.target.value as 'scripts' | 'users')}
+                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 rounded-2xl border border-slate-200 dark:border-zinc-700 text-xs font-semibold"
+                      >
+                        <option value="scripts">Массовый импорт скриптов</option>
+                        <option value="users">Массовый импорт пользователей</option>
+                      </select>
+                    </div>
+
                     <input
                       type="file"
                       accept=".xlsx, .xls"
@@ -474,14 +692,23 @@ export default function AdminPage() {
 
                     {importStatus && (
                       <div
-                        className={`p-3 rounded-2xl text-xs flex items-center gap-2 ${
+                        className={`p-3.5 rounded-2xl text-xs ${
                           importStatus.startsWith('Ошибка')
                             ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
                             : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                         }`}
                       >
-                        <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                        <span>{importStatus}</span>
+                        <div className="flex items-center gap-2 font-bold mb-1">
+                          <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                          <span>{importStatus}</span>
+                        </div>
+                        {importErrors.length > 0 && (
+                          <ul className="mt-2 text-[11px] list-disc list-inside space-y-1 opacity-90 max-h-32 overflow-y-auto">
+                            {importErrors.map((err, i) => (
+                              <li key={i}>{err}</li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     )}
 
@@ -561,18 +788,34 @@ export default function AdminPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
-                    Роль пользователя
-                  </label>
-                  <select
-                    value={userRole}
-                    onChange={(e) => setUserRole(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 rounded-2xl border border-slate-200 dark:border-zinc-700 text-sm text-slate-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="TEACHER">Учитель / Педагог</option>
-                    <option value="ADMIN">Администратор</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                      Роль
+                    </label>
+                    <select
+                      value={userRole}
+                      onChange={(e) => setUserRole(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 rounded-2xl border border-slate-200 dark:border-zinc-700 text-sm text-slate-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="USER">Педагог (USER)</option>
+                      <option value="ADMIN">Администратор (ADMIN)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                      Статус
+                    </label>
+                    <select
+                      value={userIsActive ? 'true' : 'false'}
+                      onChange={(e) => setUserIsActive(e.target.value === 'true')}
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 rounded-2xl border border-slate-200 dark:border-zinc-700 text-sm text-slate-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="true">Активен</option>
+                      <option value="false">Заблокирован</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="pt-4 flex items-center justify-end gap-3">
@@ -593,6 +836,15 @@ export default function AdminPage() {
               </form>
             </div>
           </div>
+        )}
+
+        {/* Script Create/Edit Modal */}
+        {isScriptModalOpen && (
+          <ScriptFormModal
+            scriptToEdit={scriptToEdit}
+            onClose={() => setIsScriptModalOpen(false)}
+            onSaved={fetchData}
+          />
         )}
       </main>
     </div>
