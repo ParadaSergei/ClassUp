@@ -1,83 +1,116 @@
-// Prisma schema for Pedagogical Scripts Database (ClassUp)
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+  TEACHER
+}
+
+enum CategoryEnum {
+  PARENTS
+  STUDENTS
+  ADMINISTRATION
 }
 
 model User {
-  id           String        @id @default(cuid())
+  id           String        @id @default(uuid()) @db.Uuid
   email        String        @unique
+  password     String        @map("password_hash")
   name         String
-  password     String
-  role         String        @default("TEACHER") // ADMIN or TEACHER
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  role         Role          @default(USER)
+  isActive     Boolean       @default(true) @map("is_active")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
   scripts      Script[]
   ratings      Rating[]
   comments     Comment[]
   savedScripts SavedScript[]
+
+  @@map("users")
 }
 
 model Category {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid()) @db.Uuid
   name        String   @unique
   slug        String   @unique
   description String?
   scripts     Script[]
+
+  @@map("categories")
 }
 
 model Script {
-  id          String        @id @default(cuid())
-  title       String
-  situation   String
-  content     String
-  methodTip   String?
-  categoryId  String
-  category    Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  authorId    String?
-  author      User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  isPublished Boolean       @default(true)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  ratings     Rating[]
-  comments    Comment[]
-  savedBy     SavedScript[]
+  id           String        @id @default(uuid()) @db.Uuid
+  title        String
+  situation    String        @default("")
+  description  String        @default("")
+  content      String        @db.Text
+  methodTip    String?       @map("method_tip")
+  categoryId   String?       @map("category_id") @db.Uuid
+  category     Category?     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryEnum CategoryEnum  @default(PARENTS) @map("category_enum")
+  authorId     String?       @map("author_id") @db.Uuid
+  author       User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  isPublished  Boolean       @default(true) @map("is_published")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  ratings      Rating[]
+  comments     Comment[]
+  savedBy      SavedScript[]
+
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([isPublished])
+  @@map("scripts")
 }
 
 model Rating {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid()) @db.Uuid
   value     Int
-  userId    String
+  userId    String   @map("user_id") @db.Uuid
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  scriptId  String
+  scriptId  String   @map("script_id") @db.Uuid
   script    Script   @relation(fields: [scriptId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([userId, scriptId])
+  @@index([scriptId])
+  @@index([userId])
+  @@map("ratings")
 }
 
 model Comment {
-  id        String   @id @default(cuid())
-  text      String
-  userId    String
+  id        String   @id @default(uuid()) @db.Uuid
+  text      String   @db.Text
+  userId    String   @map("user_id") @db.Uuid
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  scriptId  String
+  scriptId  String   @map("script_id") @db.Uuid
   script    Script   @relation(fields: [scriptId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([scriptId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("comments")
 }
 
 model SavedScript {
-  id        String   @id @default(cuid())
-  userId    String
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  scriptId  String
+  scriptId  String   @map("script_id") @db.Uuid
   script    Script   @relation(fields: [scriptId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([userId, scriptId])
+  @@map("saved_scripts")
 }

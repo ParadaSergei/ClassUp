@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 import * as XLSX from 'xlsx';
+import bcrypt from 'bcryptjs';
 
-// GET /api/excel/export - Export scripts/users to .xlsx
+// GET /api/excel/export - Export scripts, users, or comments to .xlsx
 export async function GET(request: Request) {
   try {
     const user = await getCurrentUser();
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type') || 'scripts'; // 'scripts' or 'users'
+    const type = searchParams.get('type') || 'scripts'; // 'scripts', 'users', or 'comments'
 
     const workbook = XLSX.utils.book_new();
 
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
           'Ситуация': s.situation,
           'Текст скрипта / фраза': s.content,
           'Методический совет': s.methodTip || '',
-          'Категория': s.category.name,
+          'Категория': s.category?.name || 'Без категории',
           'Автор': s.author ? s.author.name : 'Система',
           'Опубликован': s.isPublished ? 'Да' : 'Нет',
           'Средний рейтинг': avgRating,
@@ -51,13 +52,14 @@ export async function GET(request: Request) {
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Скрипты');
-    } else {
+    } else if (type === 'users') {
       const users = await prisma.user.findMany({
         select: {
           id: true,
           name: true,
           email: true,
           role: true,
+          isActive: true,
           createdAt: true,
           _count: {
             select: { scripts: true, ratings: true, comments: true },
@@ -71,6 +73,7 @@ export async function GET(request: Request) {
         'ФИО / Имя': u.name,
         Email: u.email,
         'Роль': u.role === 'ADMIN' ? 'Администратор' : 'Учитель',
+        'Статус аккаунта': u.isActive ? 'Активен' : 'Заблокирован',
         'Создано скриптов': u._count.scripts,
         'Поставлено оценок': u._count.ratings,
         'Оставлено комментариев': u._count.comments,
@@ -79,6 +82,26 @@ export async function GET(request: Request) {
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Пользователи');
+    } else if (type === 'comments') {
+      const comments = await prisma.comment.findMany({
+        include: {
+          user: { select: { name: true, email: true } },
+          script: { select: { title: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const excelData = comments.map((c) => ({
+        ID: c.id,
+        'Текст комментария': c.text,
+        'Автор': c.user ? c.user.name : 'Аноним',
+        'Email автора': c.user ? c.user.email : '',
+        'Скрипт': c.script ? c.script.title : '',
+        'Дата создания': c.createdAt.toISOString().split('T')[0],
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Комментарии');
     }
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
@@ -96,7 +119,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/excel/import - Import scripts from .xlsx file
+// POST /api/excel/import - Mass import scripts or users from .xlsx file
 export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
@@ -106,6 +129,7 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const importType = (formData.get('type') as string) || 'scripts'; // 'scripts' or 'users'
 
     if (!file) {
       return NextResponse.json({ error: 'Файл не найден в запросе' }, { status: 400 });
@@ -123,47 +147,88 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Excel файл не содержит данных' }, { status: 400 });
     }
 
-    // Default category if mapped category not found
-    const categories = await prisma.category.findMany();
-    const defaultCategory = categories[0];
-
     let importedCount = 0;
+    const errors: string[] = [];
 
-    for (const row of rows) {
-      const title = row['Заголовок'] || row['Title'] || row['title'];
-      const situation = row['Ситуация'] || row['Situation'] || row['situation'];
-      const content = row['Текст скрипта / фраза'] || row['Текст'] || row['Content'] || row['content'];
-      const methodTip = row['Методический совет'] || row['Совет'] || row['MethodTip'] || row['methodTip'];
-      const categoryName = row['Категория'] || row['Category'];
+    if (importType === 'users') {
+      for (const [index, row] of rows.entries()) {
+        const name = row['ФИО / Имя'] || row['Имя'] || row['Name'] || row['name'];
+        const email = row['Email'] || row['email'];
+        const password = row['Пароль'] || row['Password'] || 'DefaultPassword123';
+        const role = row['Роль'] || row['Role'];
 
-      if (!title || !situation || !content) {
-        continue;
+        if (!name || !email) {
+          errors.push(`Строка ${index + 2}: Отсутствует имя или email`);
+          continue;
+        }
+
+        const cleanEmail = String(email).toLowerCase().trim();
+        if (!cleanEmail.includes('@')) {
+          errors.push(`Строка ${index + 2}: Некорректный email ${cleanEmail}`);
+          continue;
+        }
+
+        const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
+        if (existing) {
+          errors.push(`Строка ${index + 2}: Пользователь ${cleanEmail} уже существует`);
+          continue;
+        }
+
+        const hashedPassword = await bcrypt.hash(String(password), 10);
+        await prisma.user.create({
+          data: {
+            name: String(name).trim(),
+            email: cleanEmail,
+            password: hashedPassword,
+            role: String(role).toUpperCase().includes('ADMIN') ? 'ADMIN' : 'USER',
+            isActive: true,
+          },
+        });
+        importedCount++;
       }
+    } else {
+      const categories = await prisma.category.findMany();
+      const defaultCategory = categories[0];
 
-      // Find matching category or use default
-      let matchedCategory = categories.find(
-        (c) => c.name.toLowerCase() === String(categoryName || '').toLowerCase()
-      );
-      if (!matchedCategory) matchedCategory = defaultCategory;
+      for (const [index, row] of rows.entries()) {
+        const title = row['Заголовок'] || row['Title'] || row['title'];
+        const situation = row['Ситуация'] || row['Situation'] || row['situation'];
+        const content = row['Текст скрипта / фраза'] || row['Текст'] || row['Content'] || row['content'];
+        const methodTip = row['Методический совет'] || row['Совет'] || row['MethodTip'] || row['methodTip'];
+        const categoryName = row['Категория'] || row['Category'];
 
-      await prisma.script.create({
-        data: {
-          title: String(title),
-          situation: String(situation),
-          content: String(content),
-          methodTip: methodTip ? String(methodTip) : null,
-          categoryId: matchedCategory.id,
-          authorId: user.id,
-          isPublished: true,
-        },
-      });
+        if (!title || !content) {
+          errors.push(`Строка ${index + 2}: Заголовок и текст обязательны`);
+          continue;
+        }
 
-      importedCount++;
+        let matchedCategory = categories.find(
+          (c) => c.name.toLowerCase() === String(categoryName || '').toLowerCase()
+        );
+        if (!matchedCategory) matchedCategory = defaultCategory;
+
+        await prisma.script.create({
+          data: {
+            title: String(title).trim(),
+            situation: situation ? String(situation).trim() : String(title).trim(),
+            content: String(content).trim(),
+            methodTip: methodTip ? String(methodTip).trim() : null,
+            categoryId: matchedCategory?.id,
+            authorId: user.id,
+            isPublished: true,
+          },
+        });
+
+        importedCount++;
+      }
     }
 
     return NextResponse.json({
-      message: `Успешно импортировано скриптов: ${importedCount}`,
+      message: `Успешно импортировано записей: ${importedCount}.${
+        errors.length > 0 ? ` Замечаний: ${errors.length}` : ''
+      }`,
       importedCount,
+      errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error: any) {
     console.error('Error importing Excel:', error);

@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 
-
 // GET /api/admin/stats - System analytics for charts
 export async function GET() {
   try {
@@ -41,7 +40,7 @@ export async function GET() {
       .map((s) => ({
         id: s.id,
         title: s.title,
-        category: s.category.name,
+        category: s.category?.name || 'Без категории',
         avgRating:
           s.ratings.length > 0
             ? Number((s.ratings.reduce((acc, r) => acc + r.value, 0) / s.ratings.length).toFixed(1))

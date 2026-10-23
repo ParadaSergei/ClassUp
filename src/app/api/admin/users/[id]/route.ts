@@ -15,12 +15,13 @@ export async function PUT(
       return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
     }
 
-    const { name, email, password, role } = await request.json();
+    const { name, email, password, role, isActive } = await request.json();
 
     const data: any = {};
-    if (name) data.name = name.trim();
-    if (email) data.email = email.toLowerCase().trim();
-    if (role) data.role = role === 'ADMIN' ? 'ADMIN' : 'TEACHER';
+    if (name !== undefined) data.name = name.trim();
+    if (email !== undefined) data.email = email.toLowerCase().trim();
+    if (role !== undefined) data.role = role === 'ADMIN' ? 'ADMIN' : 'USER';
+    if (isActive !== undefined) data.isActive = Boolean(isActive);
     if (password && password.trim() !== '') {
       data.password = await bcrypt.hash(password, 10);
     }
@@ -33,6 +34,7 @@ export async function PUT(
         name: true,
         email: true,
         role: true,
+        isActive: true,
         createdAt: true,
       },
     });
