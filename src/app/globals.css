@@ -71,7 +71,7 @@ body {
   scrollbar-color: var(--border-color) transparent;
 }
 
-/* Login Animated Diagonal Stripes Background */
+/* Login Animated Diagonal Stripes Background (Speed halved: 2s -> 4s) */
 .login-animated-bg {
   width: 100%;
   background: repeating-linear-gradient(
@@ -82,20 +82,20 @@ body {
     #465298 10%
   );
   background-size: 100px 100px;
-  animation: move-it 2s linear infinite;
+  animation: move-it 4s linear infinite;
 }
 
-/* Combined Animated Gradient with Moving Stripes Overlay */
+/* Combined Animated Gradient with Moving Stripes Overlay (Speed halved: 8s -> 16s) */
 .animated-gradient-color {
   position: relative;
   width: 100%;
   background: linear-gradient(-45deg, #ff007f, #7f00ff, #00c6ff, #00f2fe, #f59e0b, #ff4e50);
   background-size: 400% 400%;
-  animation: gradientBG 8s ease infinite;
+  animation: gradientBG 16s ease infinite;
   overflow: hidden;
 }
 
-/* Moving Diagonal Stripes Overlay on Top of Animated Gradient */
+/* Moving Diagonal Stripes Overlay on Top of Animated Gradient (Speed halved: 2s -> 4s) */
 .animated-gradient-color::before {
   content: '';
   position: absolute;
@@ -108,7 +108,7 @@ body {
     rgba(0, 0, 0, 0.08) 10%
   );
   background-size: 100px 100px;
-  animation: move-it 2s linear infinite;
+  animation: move-it 4s linear infinite;
   pointer-events: none;
   z-index: 1;
 }
