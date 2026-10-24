@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import ScriptFormModal from '@/components/ScriptFormModal';
+import ScriptModal from '@/components/ScriptModal';
 import { ScriptItem } from '@/components/ScriptCard';
 import {
   Users,
@@ -58,6 +59,9 @@ export default function AdminPage() {
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
   const [scriptToEdit, setScriptToEdit] = useState<ScriptItem | null>(null);
 
+  // Notification script preview modal state
+  const [selectedScriptFromNotification, setSelectedScriptFromNotification] = useState<ScriptItem | null>(null);
+
   // Script Actions Menu state
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
 
@@ -108,6 +112,17 @@ export default function AdminPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const openScriptById = (scriptId: string) => {
+    fetch(`/api/scripts/${scriptId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.script) {
+          setSelectedScriptFromNotification(data.script);
+        }
+      })
+      .catch((err) => console.error('Error opening script from notification:', err));
+  };
 
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,7 +326,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen flex flex-col font-sans transition-colors">
-      <Header />
+      <Header onSelectScriptFromNotification={(scriptId) => openScriptById(scriptId)} />
 
       <div className="animated-gradient-color flex-1 w-full py-8 px-4 sm:px-6 lg:px-8">
         <main className="max-w-7xl mx-auto w-full">
@@ -819,6 +834,15 @@ export default function AdminPage() {
                 </div>
               )}
             </>
+          )}
+
+          {/* Notification Script Detailed View Modal */}
+          {selectedScriptFromNotification && (
+            <ScriptModal
+              script={selectedScriptFromNotification}
+              onClose={() => setSelectedScriptFromNotification(null)}
+              onUpdate={fetchData}
+            />
           )}
 
           {/* Share Modal Dialog */}

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import ScriptCard, { ScriptItem } from '@/components/ScriptCard';
 import ScriptModal from '@/components/ScriptModal';
-import { Bookmark, BookOpen } from 'lucide-react';
+import { Bookmark } from 'lucide-react';
 
 export default function SavedPage() {
   const [savedScripts, setSavedScripts] = useState<ScriptItem[]>([]);
@@ -31,6 +31,17 @@ export default function SavedPage() {
     fetchSavedScripts();
   }, []);
 
+  const openScriptById = (scriptId: string) => {
+    fetch(`/api/scripts/${scriptId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.script) {
+          setSelectedScript(data.script);
+        }
+      })
+      .catch((err) => console.error('Error opening script from notification:', err));
+  };
+
   const handleToggleSave = async (id: string) => {
     try {
       await fetch(`/api/scripts/${id}/save`, { method: 'POST' });
@@ -41,17 +52,17 @@ export default function SavedPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
-      <Header />
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex flex-col font-sans text-slate-800 dark:text-zinc-200">
+      <Header onSelectScriptFromNotification={(scriptId) => openScriptById(scriptId)} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 flex items-center justify-center">
             <Bookmark className="w-5 h-5 fill-amber-500" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-slate-900">Мои сохраненные скрипты</h1>
-            <p className="text-xs text-slate-500">
+            <h1 className="text-2xl font-black text-slate-900 dark:text-zinc-100">Мои сохраненные скрипты</h1>
+            <p className="text-xs text-slate-500 dark:text-zinc-400">
               Быстрый доступ к выбранным сценариям педагогических решений
             </p>
           </div>
@@ -60,7 +71,7 @@ export default function SavedPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-64 bg-slate-200/60 rounded-2xl animate-pulse" />
+              <div key={i} className="h-64 bg-slate-200/60 dark:bg-zinc-800/60 rounded-2xl animate-pulse" />
             ))}
           </div>
         ) : savedScripts.length > 0 ? (
@@ -75,12 +86,12 @@ export default function SavedPage() {
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 max-w-md mx-auto">
-            <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-12 text-center border border-slate-200/80 dark:border-zinc-800 max-w-md mx-auto">
+            <div className="w-12 h-12 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-3">
               <Bookmark className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-1">У вас пока нет сохраненных скриптов</h3>
-            <p className="text-xs text-slate-500 mb-4">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-zinc-100 mb-1">У вас пока нет сохраненных скриптов</h3>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mb-4">
               Нажимайте на иконку закладки на карточке скрипта в каталоге, чтобы сохранить его сюда.
             </p>
           </div>

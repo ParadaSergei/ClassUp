@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { BookOpen, ShieldCheck, Bookmark, LogOut, LogIn, Plus, Bell, CheckCheck, FileText, Trash2, X } from 'lucide-react';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
@@ -13,6 +14,7 @@ export default function Header({
   onOpenCreate?: () => void;
   onSelectScriptFromNotification?: (scriptId: string) => void;
 }) {
+  const router = useRouter();
   const { data: session } = useSession();
   const user = session?.user as any;
 
@@ -106,8 +108,12 @@ export default function Header({
     }
     setIsBellOpen(false);
 
-    if (onSelectScriptFromNotification && notif.scriptId) {
-      onSelectScriptFromNotification(notif.scriptId);
+    if (notif.scriptId) {
+      if (onSelectScriptFromNotification) {
+        onSelectScriptFromNotification(notif.scriptId);
+      } else {
+        router.push(`/catalog?scriptId=${notif.scriptId}`);
+      }
     }
   };
 
