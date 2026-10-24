@@ -53,6 +53,22 @@ export default function Home() {
     fetchScripts();
   }, [selectedCategory, sortBy]);
 
+  // Open script modal automatically if scriptId parameter is in URL (from notification)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const scriptIdParam = urlParams.get('scriptId');
+    if (scriptIdParam) {
+      fetch(`/api/scripts/${scriptIdParam}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.script) {
+            setSelectedScript(data.script);
+          }
+        })
+        .catch((err) => console.error('Error opening script from URL:', err));
+    }
+  }, []);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     fetchScripts();
