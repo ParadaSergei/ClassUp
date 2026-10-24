@@ -10,28 +10,54 @@ export async function GET() {
       return NextResponse.json({ error: 'Необходима авторизация' }, { status: 401 });
     }
 
-    const notifications = await prisma.notification.findMany({
-      where: { userId: currentUser.id },
-      include: {
-        script: {
-          select: {
-            id: true,
-            title: true,
-            situation: true,
-            categoryEnum: true,
+    let notifications: any[] = [];
+    let unreadCount = 0;
+
+    if ((prisma as any).notification) {
+      notifications = await (prisma as any).notification.findMany({
+        where: { userId: currentUser.id },
+        include: {
+          script: {
+            select: {
+              id: true,
+              title: true,
+              situation: true,
+              categoryEnum: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    });
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      });
 
-    const unreadCount = await prisma.notification.count({
-      where: {
-        userId: currentUser.id,
-        isRead: false,
-      },
-    });
+      unreadCount = await (prisma as any).notification.count({
+        where: {
+          userId: currentUser.id,
+          isRead: false,
+        },
+      });
+    } else {
+      // Raw SQL query fallback
+      const rawNotifs: any = await prisma.$queryRaw`
+        SELECT n.id, n.message, n.is_read as "isRead", n.created_at as "createdAt", n.script_id as "scriptId",
+               s.title as "scriptTitle"
+        FROM notifications n
+        LEFT JOIN scripts s ON s.id = n.script_id
+        WHERE n.user_id = ${currentUser.id}::uuid
+        ORDER BY n.created_at DESC
+        LIMIT 20
+      `.catch(() => []);
+
+      notifications = Array.isArray(rawNotifs) ? rawNotifs : [];
+
+      const countResult: any = await prisma.$queryRaw`
+        SELECT COUNT(*)::int as count
+        FROM notifications
+        WHERE user_id = ${currentUser.id}::uuid AND is_read = false
+      `.catch(() => [{ count: 0 }]);
+
+      unreadCount = countResult?.[0]?.count || 0;
+    }
 
     return NextResponse.json({ notifications, unreadCount });
   } catch (err: any) {
@@ -60,31 +86,54 @@ export async function POST(req: Request) {
 
     const notificationMessage = message || `Администратор поделился с вами скриптом: "${script.title}"`;
 
-    // Try createMany, fallback to creating row by row
-    try {
-      await prisma.notification.createMany({
-        data: userIds.map((userId: string) => ({
-          userId,
-          scriptId,
-          message: notificationMessage,
-        })),
-      });
-    } catch (e: any) {
-      for (const userId of userIds) {
-        await prisma.notification.create({
-          data: {
-            userId,
-            scriptId,
-            message: notificationMessage,
-          },
-        });
+    // Attempt through Prisma ORM model
+    if ((prisma as any).notification) {
+      try {
+        if ((prisma as any).notification.createMany) {
+          await (prisma as any).notification.createMany({
+            data: userIds.map((userId: string) => ({
+              userId,
+              scriptId,
+              message: notificationMessage,
+            })),
+          });
+          return NextResponse.json({ success: true, count: userIds.length });
+        }
+      } catch (e) {
+        // Fallback below
       }
+
+      try {
+        for (const userId of userIds) {
+          await (prisma as any).notification.create({
+            data: {
+              userId,
+              scriptId,
+              message: notificationMessage,
+            },
+          });
+        }
+        return NextResponse.json({ success: true, count: userIds.length });
+      } catch (e) {
+        // Fallback to Raw SQL below
+      }
+    }
+
+    // Direct Raw SQL Fallback
+    for (const userId of userIds) {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "notifications" ("id", "user_id", "script_id", "message", "is_read", "created_at")
+         VALUES (gen_random_uuid(), $1::uuid, $2::uuid, $3, false, CURRENT_TIMESTAMP)`,
+        userId,
+        scriptId,
+        notificationMessage
+      );
     }
 
     return NextResponse.json({ success: true, count: userIds.length });
   } catch (err: any) {
     return NextResponse.json(
-      { error: err.message || 'Ошибка отправки уведомления' },
+      { error: err.message || 'Ошибка отправки уведомления. Проверьте создание таблицы notifications в базе данных.' },
       { status: 500 }
     );
   }
@@ -101,19 +150,34 @@ export async function PATCH(req: Request) {
     const body = await req.json().catch(() => ({}));
     const { notificationId } = body;
 
-    if (notificationId) {
-      await prisma.notification.updateMany({
-        where: {
-          id: notificationId,
-          userId: currentUser.id,
-        },
-        data: { isRead: true },
-      });
+    if ((prisma as any).notification) {
+      if (notificationId) {
+        await (prisma as any).notification.updateMany({
+          where: {
+            id: notificationId,
+            userId: currentUser.id,
+          },
+          data: { isRead: true },
+        });
+      } else {
+        await (prisma as any).notification.updateMany({
+          where: { userId: currentUser.id },
+          data: { isRead: true },
+        });
+      }
     } else {
-      await prisma.notification.updateMany({
-        where: { userId: currentUser.id },
-        data: { isRead: true },
-      });
+      if (notificationId) {
+        await prisma.$executeRawUnsafe(
+          `UPDATE "notifications" SET "is_read" = true WHERE "id" = $1::uuid AND "user_id" = $2::uuid`,
+          notificationId,
+          currentUser.id
+        );
+      } else {
+        await prisma.$executeRawUnsafe(
+          `UPDATE "notifications" SET "is_read" = true WHERE "user_id" = $1::uuid`,
+          currentUser.id
+        );
+      }
     }
 
     return NextResponse.json({ success: true });
