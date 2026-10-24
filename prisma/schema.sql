@@ -71,6 +71,16 @@ CREATE TABLE "saved_scripts" (
     CONSTRAINT "unique_user_script_saved" UNIQUE ("user_id", "script_id")
 );
 
+-- 7. Notifications Table
+CREATE TABLE "notifications" (
+    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "user_id" UUID NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+    "script_id" UUID NOT NULL REFERENCES "scripts"("id") ON DELETE CASCADE,
+    "message" TEXT NOT NULL,
+    "is_read" BOOLEAN NOT NULL DEFAULT FALSE,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for Query Performance
 CREATE INDEX "idx_scripts_category_id" ON "scripts"("category_id");
 CREATE INDEX "idx_scripts_author_id" ON "scripts"("author_id");
@@ -85,3 +95,6 @@ CREATE INDEX "idx_comments_created_at" ON "comments"("created_at");
 
 CREATE INDEX "idx_saved_scripts_user_id" ON "saved_scripts"("user_id");
 CREATE INDEX "idx_saved_scripts_script_id" ON "saved_scripts"("script_id");
+
+CREATE INDEX "idx_notifications_user_id" ON "notifications"("user_id");
+CREATE INDEX "idx_notifications_script_id" ON "notifications"("script_id");

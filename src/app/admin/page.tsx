@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Header from '@/components/Header';
 import ScriptFormModal from '@/components/ScriptFormModal';
 import { ScriptItem } from '@/components/ScriptCard';
@@ -22,6 +22,10 @@ import {
   Lock,
   Unlock,
   MessageSquare,
+  MoreVertical,
+  Share2,
+  Send,
+  Check,
 } from 'lucide-react';
 import {
   BarChart,
@@ -53,6 +57,16 @@ export default function AdminPage() {
   // Script modal state
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
   const [scriptToEdit, setScriptToEdit] = useState<ScriptItem | null>(null);
+
+  // Script Actions Menu state
+  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
+
+  // Share Modal state
+  const [shareScript, setShareScript] = useState<any | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [shareMessage, setShareMessage] = useState('');
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
 
   // Excel file upload state
   const [importType, setImportType] = useState<'scripts' | 'users'>('scripts');
@@ -202,6 +216,53 @@ export default function AdminPage() {
       }
     } catch (err) {
       console.error('Error deleting script:', err);
+    }
+  };
+
+  const handleOpenShareModal = (script: any) => {
+    setShareScript(script);
+    setSelectedUserIds([]);
+    setShareMessage(`Администратор рекомендует к изучению скрипт: "${script.title}"`);
+    setShareSuccess(false);
+    setOpenActionMenuId(null);
+  };
+
+  const handleSendShareNotification = async () => {
+    if (!shareScript || selectedUserIds.length === 0) return;
+    setIsSharing(true);
+    try {
+      const res = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scriptId: shareScript.id,
+          userIds: selectedUserIds,
+          message: shareMessage,
+        }),
+      });
+
+      if (res.ok) {
+        setShareSuccess(true);
+        setTimeout(() => {
+          setShareScript(null);
+          setShareSuccess(false);
+        }, 1500);
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Ошибка при отправке ссылки');
+      }
+    } catch (err) {
+      console.error('Error sharing script:', err);
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const handleSelectAllUsersToShare = () => {
+    if (selectedUserIds.length === users.length) {
+      setSelectedUserIds([]);
+    } else {
+      setSelectedUserIds(users.map((u) => u.id));
     }
   };
 
@@ -515,14 +576,14 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {/* SCRIPTS MANAGEMENT TAB */}
+              {/* SCRIPTS MANAGEMENT TAB WITH THREE DOTS DROPDOWN AND SHARE */}
               {activeTab === 'scripts' && (
                 <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-6 border-2 border-slate-200 dark:border-zinc-800 shadow-xl">
                   <div className="flex items-center justify-between mb-6">
                     <div className="text-left">
                       <h3 className="text-lg font-black text-slate-900 dark:text-zinc-100">Управление скриптами</h3>
                       <p className="text-xs text-slate-600 dark:text-zinc-400 font-medium">
-                        Модерация, публикация/скрытие, редактирование и удаление скриптов в базе
+                        Модерация, публикация/скрытие, отправка ссылок пользователям, редактирование и удаление скриптов
                       </p>
                     </div>
                     <button
@@ -565,10 +626,8 @@ export default function AdminPage() {
                               {s.author}
                             </td>
                             <td className="py-3.5 px-4">
-                              <button
-                                onClick={() => handleTogglePublishScript(s)}
-                                title={s.isPublished ? 'Скрыть от пользователей' : 'Опубликовать'}
-                                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-colors border ${
+                              <span
+                                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border ${
                                   s.isPublished
                                     ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700'
                                     : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700'
@@ -576,29 +635,67 @@ export default function AdminPage() {
                               >
                                 {s.isPublished ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                                 <span>{s.isPublished ? 'Опубликован' : 'Скрыт'}</span>
-                              </button>
+                              </span>
                             </td>
                             <td className="py-3.5 px-4 text-xs font-bold text-slate-600 dark:text-zinc-400">
                               ⭐ {s.avgRating} ({s.ratingsCount}) • 💬 {s.commentsCount}
                             </td>
-                            <td className="py-3.5 px-4 text-right space-x-2">
+                            <td className="py-3.5 px-4 text-right relative">
+                              {/* Three-dots Menu Trigger Button */}
                               <button
-                                onClick={() => {
-                                  setScriptToEdit(s);
-                                  setIsScriptModalOpen(true);
-                                }}
-                                className="p-2 text-slate-600 dark:text-zinc-300 hover:text-indigo-600 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-700 cursor-pointer"
-                                title="Редактировать"
+                                onClick={() =>
+                                  setOpenActionMenuId(openActionMenuId === s.id ? null : s.id)
+                                }
+                                className="p-2 rounded-xl text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-700 cursor-pointer"
+                                title="Действия со скриптом"
                               >
-                                <Edit className="w-4 h-4" />
+                                <MoreVertical className="w-4 h-4" />
                               </button>
-                              <button
-                                onClick={() => handleDeleteScript(s.id)}
-                                className="p-2 text-slate-600 dark:text-zinc-300 hover:text-rose-600 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-slate-200 dark:border-zinc-700 cursor-pointer"
-                                title="Удалить"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+
+                              {/* Dropdown Menu */}
+                              {openActionMenuId === s.id && (
+                                <div className="absolute right-4 top-12 w-48 bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border-2 border-slate-200 dark:border-zinc-700 py-2 z-30 text-left animate-in fade-in zoom-in-95 duration-100">
+                                  <button
+                                    onClick={() => handleOpenShareModal(s)}
+                                    className="w-full px-4 py-2.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Share2 className="w-4 h-4" />
+                                    Поделиться
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleTogglePublishScript(s);
+                                      setOpenActionMenuId(null);
+                                    }}
+                                    className="w-full px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    {s.isPublished ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    {s.isPublished ? 'Скрыть скрипт' : 'Опубликовать'}
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setScriptToEdit(s);
+                                      setIsScriptModalOpen(true);
+                                      setOpenActionMenuId(null);
+                                    }}
+                                    className="w-full px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                    Редактировать
+                                  </button>
+                                  <div className="my-1 border-t border-slate-100 dark:border-zinc-800" />
+                                  <button
+                                    onClick={() => {
+                                      handleDeleteScript(s.id);
+                                      setOpenActionMenuId(null);
+                                    }}
+                                    className="w-full px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    Удалить
+                                  </button>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -722,6 +819,135 @@ export default function AdminPage() {
                 </div>
               )}
             </>
+          )}
+
+          {/* Share Modal Dialog */}
+          {shareScript && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-xs">
+              <div className="bg-white dark:bg-zinc-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border-2 border-slate-200 dark:border-zinc-700 text-left">
+                <button
+                  onClick={() => setShareScript(null)}
+                  className="absolute top-6 right-6 p-2 rounded-full text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 rounded-2xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
+                    <Share2 className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900 dark:text-zinc-100">
+                      Отправить ссылку на скрипт
+                    </h2>
+                    <p className="text-xs font-bold text-slate-500 dark:text-zinc-400 line-clamp-1">
+                      {shareScript.title}
+                    </p>
+                  </div>
+                </div>
+
+                {shareSuccess ? (
+                  <div className="py-8 text-center space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                      <Check className="w-6 h-6" />
+                    </div>
+                    <div className="text-sm font-black text-slate-900 dark:text-zinc-100">
+                      Уведомления успешно отправлены!
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
+                        Текст сообщения / Комментарий
+                      </label>
+                      <textarea
+                        value={shareMessage}
+                        onChange={(e) => setShareMessage(e.target.value)}
+                        rows={2}
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-xs font-medium text-slate-900 dark:text-zinc-100"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-slate-800 dark:text-zinc-200">
+                          Выберите получателей ({selectedUserIds.length} из {users.length})
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleSelectAllUsersToShare}
+                          className="text-xs font-black text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                        >
+                          {selectedUserIds.length === users.length ? 'Снять все' : 'Выбрать всех'}
+                        </button>
+                      </div>
+
+                      <div className="max-h-56 overflow-y-auto space-y-2 pr-1 border-2 border-slate-200 dark:border-zinc-800 rounded-2xl p-3 bg-slate-50 dark:bg-zinc-800/50">
+                        {users.map((u) => {
+                          const isSelected = selectedUserIds.includes(u.id);
+                          return (
+                            <label
+                              key={u.id}
+                              className={`flex items-center justify-between p-2.5 rounded-xl border-2 transition-colors cursor-pointer ${
+                                isSelected
+                                  ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700'
+                                  : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    if (isSelected) {
+                                      setSelectedUserIds(selectedUserIds.filter((id) => id !== u.id));
+                                    } else {
+                                      setSelectedUserIds([...selectedUserIds, u.id]);
+                                    }
+                                  }}
+                                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <div>
+                                  <div className="text-xs font-extrabold text-slate-900 dark:text-zinc-100">
+                                    {u.name}
+                                  </div>
+                                  <div className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                                    {u.email}
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="text-[10px] font-bold text-slate-400">
+                                {u.role === 'ADMIN' ? 'Админ' : 'Педагог'}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setShareScript(null)}
+                        className="px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-2xl cursor-pointer"
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSharing || selectedUserIds.length === 0}
+                        onClick={handleSendShareNotification}
+                        className="px-5 py-2.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>{isSharing ? 'Отправка...' : 'Отправить'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           {/* User Create/Edit Modal */}
