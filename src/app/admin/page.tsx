@@ -205,8 +205,9 @@ export default function AdminPage() {
     }
   };
 
+  // Fixed URL from /api/excel/export to /api/excel to avoid 404
   const handleExportExcel = (type: 'scripts' | 'users' | 'comments') => {
-    window.open(`/api/excel/export?type=${type}`, '_blank');
+    window.open(`/api/excel?type=${type}`, '_blank');
   };
 
   const handleImportExcel = async (e: React.FormEvent) => {

@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/auth';
 import * as XLSX from 'xlsx';
 import bcrypt from 'bcryptjs';
 
-// GET /api/excel/export - Export scripts, users, or comments to .xlsx
+// GET /api/excel - Export scripts, users, or comments to .xlsx
 export async function GET(request: Request) {
   try {
     const user = await getCurrentUser();
@@ -16,6 +16,7 @@ export async function GET(request: Request) {
     const type = searchParams.get('type') || 'scripts'; // 'scripts', 'users', or 'comments'
 
     const workbook = XLSX.utils.book_new();
+    const dateStr = new Date().toLocaleDateString('ru-RU').replace(/\./g, '.'); // e.g. 21.10.2025
 
     if (type === 'scripts') {
       const scripts = await prisma.script.findMany({
@@ -35,18 +36,16 @@ export async function GET(request: Request) {
             : '0';
 
         return {
-          ID: s.id,
-          'Заголовок': s.title,
+          'Тема': s.title,
           'Ситуация': s.situation,
-          'Текст скрипта / фраза': s.content,
+          'Решение': s.content,
           'Методический совет': s.methodTip || '',
           'Категория': s.category?.name || 'Без категории',
           'Автор': s.author ? s.author.name : 'Система',
-          'Опубликован': s.isPublished ? 'Да' : 'Нет',
           'Средний рейтинг': avgRating,
           'Количество оценок': s.ratings.length,
           'Количество комментариев': s.comments.length,
-          'Дата создания': s.createdAt.toISOString().split('T')[0],
+          'Дата создания': new Date(s.createdAt).toLocaleDateString('ru-RU'),
         };
       });
 
@@ -77,7 +76,7 @@ export async function GET(request: Request) {
         'Создано скриптов': u._count.scripts,
         'Поставлено оценок': u._count.ratings,
         'Оставлено комментариев': u._count.comments,
-        'Дата регистрации': u.createdAt.toISOString().split('T')[0],
+        'Дата регистрации': new Date(u.createdAt).toLocaleDateString('ru-RU'),
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
@@ -97,7 +96,7 @@ export async function GET(request: Request) {
         'Автор': c.user ? c.user.name : 'Аноним',
         'Email автора': c.user ? c.user.email : '',
         'Скрипт': c.script ? c.script.title : '',
-        'Дата создания': c.createdAt.toISOString().split('T')[0],
+        'Дата создания': new Date(c.createdAt).toLocaleDateString('ru-RU'),
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
@@ -110,7 +109,7 @@ export async function GET(request: Request) {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="classup_${type}_${Date.now()}.xlsx"`,
+        'Content-Disposition': `attachment; filename="classUp_${dateStr}_${type}.xlsx"`,
       },
     });
   } catch (error: any) {
@@ -119,7 +118,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/excel/import - Mass import scripts or users from .xlsx file
+// POST /api/excel - Mass import scripts or users from .xlsx file
 export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
@@ -191,14 +190,14 @@ export async function POST(request: Request) {
       const defaultCategory = categories[0];
 
       for (const [index, row] of rows.entries()) {
-        const title = row['Заголовок'] || row['Title'] || row['title'];
+        const title = row['Тема'] || row['Заголовок'] || row['Title'] || row['title'];
         const situation = row['Ситуация'] || row['Situation'] || row['situation'];
-        const content = row['Текст скрипта / фраза'] || row['Текст'] || row['Content'] || row['content'];
+        const content = row['Решение'] || row['Текст скрипта / фраза'] || row['Текст'] || row['Content'] || row['content'];
         const methodTip = row['Методический совет'] || row['Совет'] || row['MethodTip'] || row['methodTip'];
         const categoryName = row['Категория'] || row['Category'];
 
         if (!title || !content) {
-          errors.push(`Строка ${index + 2}: Заголовок и текст обязательны`);
+          errors.push(`Строка ${index + 2}: Тема и решение обязательны`);
           continue;
         }
 
