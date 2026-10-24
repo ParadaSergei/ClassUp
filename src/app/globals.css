@@ -85,6 +85,40 @@ body {
   animation: move-it 2s linear infinite;
 }
 
+/* Combined Animated Gradient with Moving Stripes Overlay */
+.animated-gradient-color {
+  position: relative;
+  width: 100%;
+  background: linear-gradient(-45deg, #ff007f, #7f00ff, #00c6ff, #00f2fe, #f59e0b, #ff4e50);
+  background-size: 400% 400%;
+  animation: gradientBG 8s ease infinite;
+  overflow: hidden;
+}
+
+/* Moving Diagonal Stripes Overlay on Top of Animated Gradient */
+.animated-gradient-color::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.12) 5%,
+    rgba(0, 0, 0, 0.08) 5%,
+    rgba(0, 0, 0, 0.08) 10%
+  );
+  background-size: 100px 100px;
+  animation: move-it 2s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Ensure child elements stay above background overlay */
+.animated-gradient-color > * {
+  position: relative;
+  z-index: 2;
+}
+
 @keyframes move-it {
   0% {
     background-position: initial;
@@ -92,14 +126,6 @@ body {
   100% {
     background-position: 100px 0px;
   }
-}
-
-/* Animated Gradient Background Effect */
-.animated-gradient-color {
-  width: 100%;
-  background: linear-gradient(-45deg, #ff007f, #7f00ff, #00c6ff, #00f2fe, #f59e0b, #ff4e50);
-  background-size: 400% 400%;
-  animation: gradientBG 8s ease infinite;
 }
 
 @keyframes gradientBG {
