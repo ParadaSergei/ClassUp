@@ -38,64 +38,59 @@ export default function LoginPage() {
     }
   };
 
-  const handleQuickLogin = (userEmail: string, userPass: string) => {
-    setEmail(userEmail);
-    setPassword(userPass);
-  };
-
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen flex flex-col font-sans transition-colors">
       <Header />
 
       <main className="flex-1 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-xl border border-slate-100">
+        <div className="bg-white dark:bg-zinc-900 rounded-3xl p-8 max-w-md w-full shadow-xl border-2 border-slate-200 dark:border-zinc-700">
           <div className="text-center mb-8">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3 text-2xl font-bold">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mx-auto mb-3 text-2xl font-bold shadow-md">
               🎓
             </div>
-            <h1 className="text-2xl font-black text-slate-900">Вход в ClassUp</h1>
-            <p className="text-xs text-slate-500 mt-1">
+            <h1 className="text-2xl font-black text-slate-900 dark:text-zinc-100">Вход в ClassUp</h1>
+            <p className="text-xs text-slate-600 dark:text-zinc-400 mt-1 font-semibold">
               Авторизуйтесь для доступа к банку скриптов и оценкам
             </p>
           </div>
 
           {error && (
-            <div className="mb-6 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+            <div className="mb-6 p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border-2 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
                 Email адрес
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Mail className="w-4 h-4 text-slate-500 dark:text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 z-10" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@classup.ru"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full pl-10 pr-4 py-3 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:bg-zinc-800 text-slate-900 dark:text-zinc-100"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
                 Пароль
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Lock className="w-4 h-4 text-slate-500 dark:text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 z-10" />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full pl-10 pr-4 py-3 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:bg-zinc-800 text-slate-900 dark:text-zinc-100"
                   required
                 />
               </div>
@@ -104,38 +99,12 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-2xl font-bold text-sm transition-all shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center gap-2 mt-2 cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
-              {isLoading ? 'Авторизация...' : 'Войти'}
+              {isLoading ? 'Авторизация...' : 'Войти в систему'}
             </button>
           </form>
-
-          {/* Quick Login Presets for Demonstration */}
-          <div className="mt-8 pt-6 border-t border-slate-100">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider text-center mb-3">
-              Быстрый демо-вход:
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('admin@classup.ru', 'admin123')}
-                className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold hover:bg-amber-100 transition-colors text-left"
-              >
-                <div>👑 Администратор</div>
-                <div className="text-[10px] text-amber-700 font-normal">admin@classup.ru</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('teacher@classup.ru', 'teacher123')}
-                className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs font-semibold hover:bg-indigo-100 transition-colors text-left"
-              >
-                <div>👩‍🏫 Учитель</div>
-                <div className="text-[10px] text-indigo-700 font-normal">teacher@classup.ru</div>
-              </button>
-            </div>
-          </div>
         </div>
       </main>
     </div>
