@@ -185,3 +185,48 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: err.message || 'Ошибка обновления статуса' }, { status: 500 });
   }
 }
+
+// DELETE /api/notifications - delete single or all notifications for current user
+export async function DELETE(req: Request) {
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Необходима авторизация' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const notificationId = searchParams.get('id');
+
+    if ((prisma as any).notification) {
+      if (notificationId) {
+        await (prisma as any).notification.deleteMany({
+          where: {
+            id: notificationId,
+            userId: currentUser.id,
+          },
+        });
+      } else {
+        await (prisma as any).notification.deleteMany({
+          where: { userId: currentUser.id },
+        });
+      }
+    } else {
+      if (notificationId) {
+        await prisma.$executeRawUnsafe(
+          `DELETE FROM "notifications" WHERE "id" = $1::uuid AND "user_id" = $2::uuid`,
+          notificationId,
+          currentUser.id
+        );
+      } else {
+        await prisma.$executeRawUnsafe(
+          `DELETE FROM "notifications" WHERE "user_id" = $1::uuid`,
+          currentUser.id
+        );
+      }
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Ошибка удаления уведомлений' }, { status: 500 });
+  }
+}
