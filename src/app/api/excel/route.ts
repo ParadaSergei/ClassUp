@@ -20,14 +20,18 @@ export async function GET(request: Request) {
 
     if (type === 'scripts') {
       const scripts = await prisma.script.findMany({
+        include: {
+          category: true,
+        },
         orderBy: { createdAt: 'desc' },
       });
 
-      // Export strictly requested columns: Тема, Ситуация, Решение
+      // Export columns: Тема, Ситуация, Решение, Категория
       const excelData = scripts.map((s) => ({
         'Тема': s.title,
         'Ситуация': s.situation,
         'Решение': s.content,
+        'Категория': s.category?.name || 'Без категории',
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
