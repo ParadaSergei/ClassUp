@@ -106,11 +106,11 @@ export default function ScriptFormModal({ scriptToEdit, onClose, onSaved }: Scri
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-sm font-medium focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-zinc-100"
+              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-zinc-100 bg-white dark:bg-zinc-800"
               required
             >
               {categories.map((cat) => (
-                <option key={cat.id} value={cat.id} className="dark:bg-zinc-900">
+                <option key={cat.id} value={cat.id} className="text-slate-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 font-medium py-1">
                   {cat.name}
                 </option>
               ))}

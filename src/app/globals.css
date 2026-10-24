@@ -94,6 +94,12 @@ select {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+select option {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  padding: 8px 12px;
+}
+
 input[type="text"]::placeholder,
 input[type="email"]::placeholder,
 input[type="password"]::placeholder,
