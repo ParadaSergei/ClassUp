@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  /* Disable Next.js floating development indicator button (N) */
+  devIndicators: false,
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

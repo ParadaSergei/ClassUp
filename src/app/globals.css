@@ -46,6 +46,13 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Hide Next.js floating dev indicator badge (N) */
+nextjs-portal,
+#nextjs-dev-indicator,
+[data-nextjs-toast-errors-parent] {
+  display: none !important;
+}
+
 /* Distinct Input & Select styles */
 input[type="text"],
 input[type="email"],
