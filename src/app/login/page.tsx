@@ -42,8 +42,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col font-sans transition-colors">
       <Header />
 
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-zinc-900 rounded-3xl p-8 max-w-md w-full shadow-xl border-2 border-slate-200 dark:border-zinc-700">
+      <main className="animated-gradient-color flex-1 flex items-center justify-center p-4 sm:p-6">
+        <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-8 max-w-md w-full shadow-2xl border-2 border-slate-200/80 dark:border-zinc-700/80">
           <div className="text-center mb-8">
             <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mx-auto mb-3 text-2xl font-bold shadow-md">
               🎓
@@ -63,7 +63,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
+              <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5 text-left">
                 Email адрес
               </label>
               <div className="relative">
@@ -80,7 +80,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
+              <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5 text-left">
                 Пароль
               </label>
               <div className="relative">
