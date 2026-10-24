@@ -6,7 +6,13 @@ import { useSession, signOut } from 'next-auth/react';
 import { BookOpen, ShieldCheck, Bookmark, LogOut, LogIn, Plus, Bell, CheckCheck, FileText } from 'lucide-react';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 
-export default function Header({ onOpenCreate }: { onOpenCreate?: () => void }) {
+export default function Header({
+  onOpenCreate,
+  onSelectScriptFromNotification,
+}: {
+  onOpenCreate?: () => void;
+  onSelectScriptFromNotification?: (scriptId: string) => void;
+}) {
   const { data: session } = useSession();
   const user = session?.user as any;
 
@@ -71,6 +77,10 @@ export default function Header({ onOpenCreate }: { onOpenCreate?: () => void }) 
       setUnreadCount((prev) => Math.max(0, prev - 1));
     }
     setIsBellOpen(false);
+
+    if (onSelectScriptFromNotification && notif.scriptId) {
+      onSelectScriptFromNotification(notif.scriptId);
+    }
   };
 
   return (
@@ -155,11 +165,10 @@ export default function Header({ onOpenCreate }: { onOpenCreate?: () => void }) 
                   ) : (
                     <div className="max-h-80 overflow-y-auto space-y-2.5 pr-1">
                       {notifications.map((n) => (
-                        <Link
+                        <div
                           key={n.id}
-                          href={`/catalog?scriptId=${n.scriptId}`}
                           onClick={() => handleNotificationClick(n)}
-                          className={`block p-3 rounded-2xl border-2 transition-all text-left ${
+                          className={`p-3 rounded-2xl border-2 transition-all text-left cursor-pointer ${
                             n.isRead
                               ? 'bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-800 opacity-75'
                               : 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 shadow-xs'
@@ -188,7 +197,7 @@ export default function Header({ onOpenCreate }: { onOpenCreate?: () => void }) 
                               </span>
                             </div>
                           </div>
-                        </Link>
+                        </div>
                       ))}
                     </div>
                   )}

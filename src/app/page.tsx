@@ -53,19 +53,23 @@ export default function Home() {
     fetchScripts();
   }, [selectedCategory, sortBy]);
 
+  const openScriptById = (scriptId: string) => {
+    fetch(`/api/scripts/${scriptId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.script) {
+          setSelectedScript(data.script);
+        }
+      })
+      .catch((err) => console.error('Error opening script from notification:', err));
+  };
+
   // Open script modal automatically if scriptId parameter is in URL (from notification link)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const scriptIdParam = urlParams.get('scriptId');
     if (scriptIdParam) {
-      fetch(`/api/scripts/${scriptIdParam}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.script) {
-            setSelectedScript(data.script);
-          }
-        })
-        .catch((err) => console.error('Error opening script from notification URL:', err));
+      openScriptById(scriptIdParam);
     }
   }, []);
 
@@ -98,7 +102,10 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col font-sans transition-colors">
       {/* Header */}
-      <Header onOpenCreate={() => { setScriptToEdit(null); setIsFormOpen(true); }} />
+      <Header
+        onOpenCreate={() => { setScriptToEdit(null); setIsFormOpen(true); }}
+        onSelectScriptFromNotification={(scriptId) => openScriptById(scriptId)}
+      />
 
       {/* Hero Section with Indigo Gradient */}
       <section className="bg-gradient-to-b from-indigo-950 via-indigo-900 to-slate-900 text-white pt-20 pb-24 relative overflow-hidden shadow-md">
