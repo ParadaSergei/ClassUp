@@ -16,7 +16,11 @@ export async function GET(request: Request) {
     const type = searchParams.get('type') || 'scripts'; // 'scripts', 'users', or 'comments'
 
     const workbook = XLSX.utils.book_new();
-    const dateStr = new Date().toLocaleDateString('ru-RU').replace(/\./g, '.'); // e.g. 21.10.2025
+
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('ru-RU').replace(/\./g, '.'); // e.g. 21.10.2025
+    const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }).replace(/:/g, '-'); // e.g. 18-45
+    const filename = `classUp_${dateStr}_${timeStr}_${type}.xlsx`;
 
     if (type === 'scripts') {
       const scripts = await prisma.script.findMany({
@@ -94,7 +98,7 @@ export async function GET(request: Request) {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="classUp_${dateStr}_${type}.xlsx"`,
+        'Content-Disposition': `attachment; filename="${filename}"`,
       },
     });
   } catch (error: any) {
@@ -216,6 +220,6 @@ export async function POST(request: Request) {
     });
   } catch (error: any) {
     console.error('Error importing Excel:', error);
-    return NextResponse.json({ error: 'Ошибка при импорте Excel файла' }, { status: 500 });
+    return NextResponse.json({ error: 'Ошибка при формировании Excel файла' }, { status: 500 });
   }
 }
