@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import ScriptFormModal from '@/components/ScriptFormModal';
 import { ScriptItem } from '@/components/ScriptCard';
@@ -313,62 +313,62 @@ export default function AdminPage() {
     <div className="min-h-screen flex flex-col font-sans transition-colors">
       <Header />
 
-      <div className="animated-gradient-color flex-1 w-full py-10 px-4 sm:px-6 lg:px-8">
+      <div className="animated-gradient-color flex-1 w-full py-8 px-4 sm:px-6 lg:px-8">
         <main className="max-w-7xl mx-auto w-full">
-          {/* Title */}
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-8 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-6 rounded-3xl border-2 border-slate-200 dark:border-zinc-800 shadow-xl">
-            <div className="text-left">
+          {/* Top Panel Header - Fixed Layout & Stable Position */}
+          <div className="mb-6 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-6 rounded-3xl border-2 border-slate-200 dark:border-zinc-800 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="text-left flex-shrink-0">
               <span className="px-3.5 py-1.5 rounded-full text-xs font-black bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border-2 border-amber-300 dark:border-amber-700">
                 Администрирование ClassUp
               </span>
               <h1 className="text-3xl font-black text-slate-900 dark:text-zinc-100 mt-2">Панель управления</h1>
             </div>
 
-            {/* Nav Tabs */}
-            <div className="flex flex-wrap items-center gap-2 bg-slate-100 dark:bg-zinc-800 p-2 rounded-2xl border-2 border-slate-300 dark:border-zinc-700 shadow-sm">
+            {/* Nav Tabs - Fixed Grid / Row Layout */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-100 dark:bg-zinc-800 p-2 rounded-2xl border-2 border-slate-300 dark:border-zinc-700 shadow-sm flex-shrink-0">
               <button
                 onClick={() => setActiveTab('analytics')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'analytics'
                     ? 'bg-indigo-600 text-white shadow-md'
                     : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
                 }`}
               >
                 <BarChart3 className="w-4 h-4" />
-                Аналитика
+                <span>Аналитика</span>
               </button>
               <button
                 onClick={() => setActiveTab('users')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'users'
                     ? 'bg-indigo-600 text-white shadow-md'
                     : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
                 }`}
               >
                 <Users className="w-4 h-4" />
-                Пользователи ({users.length})
+                <span>Пользователи ({users.length})</span>
               </button>
               <button
                 onClick={() => setActiveTab('scripts')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'scripts'
                     ? 'bg-indigo-600 text-white shadow-md'
                     : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
                 }`}
               >
                 <FileText className="w-4 h-4" />
-                Скрипты ({adminScripts.length})
+                <span>Скрипты ({adminScripts.length})</span>
               </button>
               <button
                 onClick={() => setActiveTab('excel')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'excel'
                     ? 'bg-indigo-600 text-white shadow-md'
                     : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
                 }`}
               >
                 <FileSpreadsheet className="w-4 h-4" />
-                Excel Модуль
+                <span>Excel Модуль</span>
               </button>
             </div>
           </div>
