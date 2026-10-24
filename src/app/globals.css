@@ -46,6 +46,33 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Animated Gradient Background Effect */
+.animated-gradient-color {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  color: white;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite;
+}
+
+@keyframes gradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 /* Hide Next.js floating dev indicator badge (N) */
 nextjs-portal,
 #nextjs-dev-indicator,
