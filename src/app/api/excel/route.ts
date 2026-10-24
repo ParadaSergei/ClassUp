@@ -20,34 +20,15 @@ export async function GET(request: Request) {
 
     if (type === 'scripts') {
       const scripts = await prisma.script.findMany({
-        include: {
-          category: true,
-          author: true,
-          ratings: true,
-          comments: true,
-        },
         orderBy: { createdAt: 'desc' },
       });
 
-      const excelData = scripts.map((s) => {
-        const avgRating =
-          s.ratings.length > 0
-            ? (s.ratings.reduce((acc, r) => acc + r.value, 0) / s.ratings.length).toFixed(1)
-            : '0';
-
-        return {
-          'Тема': s.title,
-          'Ситуация': s.situation,
-          'Решение': s.content,
-          'Методический совет': s.methodTip || '',
-          'Категория': s.category?.name || 'Без категории',
-          'Автор': s.author ? s.author.name : 'Система',
-          'Средний рейтинг': avgRating,
-          'Количество оценок': s.ratings.length,
-          'Количество комментариев': s.comments.length,
-          'Дата создания': new Date(s.createdAt).toLocaleDateString('ru-RU'),
-        };
-      });
+      // Export strictly requested columns: Тема, Ситуация, Решение
+      const excelData = scripts.map((s) => ({
+        'Тема': s.title,
+        'Ситуация': s.situation,
+        'Решение': s.content,
+      }));
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Скрипты');
