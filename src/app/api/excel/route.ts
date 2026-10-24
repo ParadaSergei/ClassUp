@@ -175,7 +175,13 @@ export async function POST(request: Request) {
         importedCount++;
       }
     } else {
-      const categories = await prisma.category.findMany();
+      let categories = await prisma.category.findMany();
+      if (categories.length === 0) {
+        const defaultCat = await prisma.category.create({
+          data: { name: 'Общая', slug: 'general', description: 'Общая категория скриптов' },
+        });
+        categories = [defaultCat];
+      }
       const defaultCategory = categories[0];
 
       for (const [index, row] of rows.entries()) {
@@ -193,6 +199,21 @@ export async function POST(request: Request) {
         let matchedCategory = categories.find(
           (c) => c.name.toLowerCase() === String(categoryName || '').toLowerCase()
         );
+
+        if (!matchedCategory && categoryName) {
+          try {
+            matchedCategory = await prisma.category.create({
+              data: {
+                name: String(categoryName).trim(),
+                slug: String(categoryName).toLowerCase().trim().replace(/\s+/g, '-'),
+              },
+            });
+            categories.push(matchedCategory);
+          } catch {
+            matchedCategory = defaultCategory;
+          }
+        }
+
         if (!matchedCategory) matchedCategory = defaultCategory;
 
         await prisma.script.create({
@@ -201,9 +222,9 @@ export async function POST(request: Request) {
             situation: situation ? String(situation).trim() : String(title).trim(),
             content: String(content).trim(),
             methodTip: methodTip ? String(methodTip).trim() : null,
-            categoryId: matchedCategory?.id,
+            categoryId: matchedCategory.id,
             authorId: user.id,
-            isPublished: true,
+            isPublished: true, // Immediately publish so it is viewable on the website
           },
         });
 
@@ -220,6 +241,6 @@ export async function POST(request: Request) {
     });
   } catch (error: any) {
     console.error('Error importing Excel:', error);
-    return NextResponse.json({ error: 'Ошибка при формировании Excel файла' }, { status: 500 });
+    return NextResponse.json({ error: 'Ошибка при импорте Excel файла' }, { status: 500 });
   }
 }
