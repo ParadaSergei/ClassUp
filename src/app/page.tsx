@@ -5,6 +5,7 @@ import Header from '@/components/Header';
 import ScriptCard, { ScriptItem } from '@/components/ScriptCard';
 import ScriptModal from '@/components/ScriptModal';
 import ScriptFormModal from '@/components/ScriptFormModal';
+import FloatingCircles from '@/components/FloatingCircles';
 import { Search, Sparkles, SlidersHorizontal } from 'lucide-react';
 
 export default function Home() {
@@ -140,8 +141,10 @@ export default function Home() {
       </section>
 
       {/* Main Catalog Section with Animated Gradient Background container */}
-      <div className="animated-gradient-color flex-1 w-full py-12 px-4 sm:px-6 lg:px-8">
-        <main className="max-w-7xl mx-auto w-full" id="catalog">
+      <div className="animated-gradient-color flex-1 w-full py-12 px-4 sm:px-6 lg:px-8 relative">
+        <FloatingCircles />
+
+        <main className="max-w-7xl mx-auto w-full relative z-10" id="catalog">
           {/* Search & Filters */}
           <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-6 shadow-xl border-2 border-slate-200/80 dark:border-zinc-700/80 mb-8 space-y-6">
             <form onSubmit={handleSearchSubmit} className="relative max-w-2xl mx-auto">

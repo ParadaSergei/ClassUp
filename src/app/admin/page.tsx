@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import ScriptFormModal from '@/components/ScriptFormModal';
+import FloatingCircles from '@/components/FloatingCircles';
 import { ScriptItem } from '@/components/ScriptCard';
 import {
   Users,
@@ -313,8 +314,10 @@ export default function AdminPage() {
     <div className="min-h-screen flex flex-col font-sans transition-colors">
       <Header />
 
-      <div className="animated-gradient-color flex-1 w-full py-8 px-4 sm:px-6 lg:px-8">
-        <main className="max-w-7xl mx-auto w-full">
+      <div className="animated-gradient-color flex-1 w-full py-8 px-4 sm:px-6 lg:px-8 relative">
+        <FloatingCircles />
+
+        <main className="max-w-7xl mx-auto w-full relative z-10">
           {/* Top Panel Header - Fixed Layout & Stable Position */}
           <div className="mb-6 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-6 rounded-3xl border-2 border-slate-200 dark:border-zinc-800 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="text-left flex-shrink-0">

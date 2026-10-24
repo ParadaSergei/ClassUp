@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
+import FloatingCircles from '@/components/FloatingCircles';
 import { LogIn, Lock, Mail, ShieldAlert } from 'lucide-react';
 
 export default function LoginPage() {
@@ -42,8 +43,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col font-sans transition-colors">
       <Header />
 
-      <main className="animated-gradient-color flex-1 flex items-center justify-center p-4 sm:p-6">
-        <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-8 max-w-md w-full shadow-2xl border-2 border-slate-200/80 dark:border-zinc-700/80">
+      <main className="animated-gradient-color flex-1 flex items-center justify-center p-4 sm:p-6 relative">
+        <FloatingCircles />
+
+        <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-8 max-w-md w-full shadow-2xl border-2 border-slate-200/80 dark:border-zinc-700/80 relative z-10">
           <div className="text-center mb-8">
             <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mx-auto mb-3 text-2xl font-bold shadow-md">
               🎓

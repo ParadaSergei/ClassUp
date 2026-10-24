@@ -1,23 +1,24 @@
+@import url('https://fonts.googleapis.com/css?family=Exo:400,700');
 @import "tailwindcss";
 
 @layer base {
   :root {
     --bg-main: #f8fafc;
     --bg-card: #ffffff;
-    --border-color: #cbd5e1; /* slate-300 for distinct clear borders */
+    --border-color: #cbd5e1;
     --input-bg: #ffffff;
     --text-primary: #0f172a;
     --text-secondary: #475569;
     --accent: #4f46e5;
     --accent-hover: #4338ca;
     --accent-light: rgba(79, 70, 229, 0.15);
-    --font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'SF Pro Text', Roboto, sans-serif;
+    --font-family: 'Exo', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
   }
 
   .grey {
     --bg-main: #18181b;
     --bg-card: #27272a;
-    --border-color: #52525b; /* zinc-600 */
+    --border-color: #52525b;
     --input-bg: #18181b;
     --text-primary: #f4f4f5;
     --text-secondary: #d4d4d8;
@@ -29,7 +30,7 @@
   .dark {
     --bg-main: #000000;
     --bg-card: #09090b;
-    --border-color: #3f3f46; /* zinc-700 */
+    --border-color: #3f3f46;
     --input-bg: #121215;
     --text-primary: #fafafa;
     --text-secondary: #e4e4e7;
@@ -46,7 +47,7 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Custom Scrollbars styled under site theme */
+/* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -70,31 +71,131 @@ body {
   scrollbar-color: var(--border-color) transparent;
 }
 
-/* Brighter & More Vivid Animated Gradient Background Effect */
+/* Floating Animated Circles Gradient Background Effect (.animated-gradient-color) */
 .animated-gradient-color {
+  position: relative;
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
-  background: linear-gradient(-45deg, #ff007f, #7f00ff, #00c6ff, #00f2fe, #f59e0b, #ff4e50);
-  background-size: 400% 400%;
-  animation: gradientBG 8s ease infinite;
+  background: #4e54c8;
+  background: -webkit-linear-gradient(to left, #8f94fb, #4e54c8);
+  background: linear-gradient(to left, #8f94fb, #4e54c8);
+  overflow: hidden;
 }
 
-@keyframes gradientBG {
+/* Circles Animation Overlay */
+.circles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.circles li {
+  position: absolute;
+  display: block;
+  list-style: none;
+  width: 20px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  animation: animate 25s linear infinite;
+  bottom: -150px;
+}
+
+.circles li:nth-child(1) {
+  left: 25%;
+  width: 80px;
+  height: 80px;
+  animation-delay: 0s;
+}
+
+.circles li:nth-child(2) {
+  left: 10%;
+  width: 20px;
+  height: 20px;
+  animation-delay: 2s;
+  animation-duration: 12s;
+}
+
+.circles li:nth-child(3) {
+  left: 70%;
+  width: 20px;
+  height: 20px;
+  animation-delay: 4s;
+}
+
+.circles li:nth-child(4) {
+  left: 40%;
+  width: 60px;
+  height: 60px;
+  animation-delay: 0s;
+  animation-duration: 18s;
+}
+
+.circles li:nth-child(5) {
+  left: 65%;
+  width: 20px;
+  height: 20px;
+  animation-delay: 0s;
+}
+
+.circles li:nth-child(6) {
+  left: 75%;
+  width: 110px;
+  height: 110px;
+  animation-delay: 3s;
+}
+
+.circles li:nth-child(7) {
+  left: 35%;
+  width: 150px;
+  height: 150px;
+  animation-delay: 7s;
+}
+
+.circles li:nth-child(8) {
+  left: 50%;
+  width: 25px;
+  height: 25px;
+  animation-delay: 15s;
+  animation-duration: 45s;
+}
+
+.circles li:nth-child(9) {
+  left: 20%;
+  width: 15px;
+  height: 15px;
+  animation-delay: 2s;
+  animation-duration: 35s;
+}
+
+.circles li:nth-child(10) {
+  left: 85%;
+  width: 150px;
+  height: 150px;
+  animation-delay: 0s;
+  animation-duration: 11s;
+}
+
+@keyframes animate {
   0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+    border-radius: 0;
   }
   100% {
-    background-position: 0% 50%;
+    transform: translateY(-1000px) rotate(720deg);
+    opacity: 0;
+    border-radius: 50%;
   }
+}
+
+/* Ensure content stays above floating circles */
+.animated-gradient-color > * {
+  position: relative;
+  z-index: 2;
 }
 
 /* Hide Next.js floating dev indicator badge (N) */
@@ -144,7 +245,7 @@ select:focus {
 .card-style {
   background-color: var(--bg-card);
   border: 1.5px solid var(--border-color);
-  border-radius: 1.5rem; /* rounded-3xl */
+  border-radius: 1.5rem;
   box-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.06);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
