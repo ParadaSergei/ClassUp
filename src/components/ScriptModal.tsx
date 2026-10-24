@@ -204,9 +204,9 @@ export default function ScriptModal({ script, onClose, onUpdate, onEdit, onDelet
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Minimal Top/Bottom Padding & Extended Comments List */}
-          <div className="md:col-span-5 flex flex-col justify-between min-h-0 space-y-3 py-0">
-            {/* Header & Comments Count */}
+          {/* RIGHT COLUMN: Minimal Spacing, Top-Aligned Sections */}
+          <div className="md:col-span-5 flex flex-col justify-start space-y-3 min-h-0 py-0 flex-1">
+            {/* Comments Header */}
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-slate-900 dark:text-zinc-100 flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -227,14 +227,14 @@ export default function ScriptModal({ script, onClose, onUpdate, onEdit, onDelet
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
                     maxLength={1000}
-                    placeholder="Напишите ваш комментарий или выберите оценку ниже..."
+                    placeholder="Напишите комментарий или выберите оценку ниже..."
                     rows={2}
-                    className="w-full px-3.5 py-2.5 text-xs font-medium rounded-2xl border-2 border-slate-300 dark:border-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-zinc-100 bg-white dark:bg-zinc-800 resize-y min-h-[65px] max-h-[150px]"
+                    className="w-full px-3.5 py-2.5 text-xs font-medium rounded-2xl border-2 border-slate-300 dark:border-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-zinc-100 bg-white dark:bg-zinc-800 resize-y min-h-[65px] max-h-[140px]"
                   />
 
                   {/* Rating Stars placed directly to the right of character count */}
                   <div className="flex items-center justify-between pt-1">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2.5">
                       <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">
                         {commentText.length} / 1000
                       </span>
@@ -280,8 +280,8 @@ export default function ScriptModal({ script, onClose, onUpdate, onEdit, onDelet
               </p>
             )}
 
-            {/* Extended Comments List down to modal bottom edge, showing date + time and admin delete button */}
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[180px] max-h-[360px]">
+            {/* Extended Comments List taking full remaining height */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[180px] max-h-[420px]">
               {commentsList.map((comm) => (
                 <div key={comm.id} className="bg-slate-50 dark:bg-zinc-800/80 rounded-2xl p-3 border-2 border-slate-200 dark:border-zinc-700 shadow-xs relative">
                   <div className="flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400 mb-1">
