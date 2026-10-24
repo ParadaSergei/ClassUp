@@ -55,3 +55,27 @@ export async function POST(
     return NextResponse.json({ error: 'Ошибка при отправке комментария' }, { status: 500 });
   }
 }
+
+// DELETE /api/scripts/[id]/comments?commentId=xxx - Delete a comment (Admin only)
+export async function DELETE(request: Request) {
+  try {
+    const user = await getCurrentUser();
+    if (!user || user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const commentId = searchParams.get('commentId');
+
+    if (!commentId) {
+      return NextResponse.json({ error: 'Не указан ID комментария' }, { status: 400 });
+    }
+
+    await prisma.comment.delete({ where: { id: commentId } });
+
+    return NextResponse.json({ message: 'Комментарий успешно удален' });
+  } catch (error: any) {
+    console.error('Error deleting comment:', error);
+    return NextResponse.json({ error: 'Ошибка при удалении комментария' }, { status: 500 });
+  }
+}
