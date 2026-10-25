@@ -6,12 +6,16 @@
     "dev": "next dev",
     "postinstall": "prisma generate",
     "build": "npx prisma generate && npx next build",
+    "build:cf": "npx prisma generate && npx open-next-cloudflare build",
+    "deploy:cf": "npm run build:cf && npx wrangler deploy",
     "start": "npx next start",
     "lint": "eslint"
   },
   "dependencies": {
     "@neon/config": "^1.9.4",
     "@neon/env": "^1.6.5",
+    "@neondatabase/serverless": "^1.0.2",
+    "@prisma/adapter-neon": "^5.22.0",
     "@prisma/client": "5.22.0",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.3",
@@ -26,16 +30,21 @@
     "react-dom": "19.3.0",
     "recharts": "^3.10.1",
     "tailwind-merge": "^3.7.0",
+    "ws": "^8.18.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.13.16",
+    "@opennextjs/cloudflare": "^1.1.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.5.14",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.20.0"
   }
 }
