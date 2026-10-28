@@ -21,21 +21,14 @@ export default function ScriptFormModal({ scriptToEdit, onClose, onSaved }: Scri
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Fetch categories
     async function fetchCategories() {
       try {
-        const res = await fetch('/api/scripts');
+        const res = await fetch('/api/categories');
         const data = await res.json();
-        if (data.scripts) {
-          // Extract unique categories
-          const catMap = new Map();
-          data.scripts.forEach((s: any) => {
-            if (s.category) catMap.set(s.category.id, s.category);
-          });
-          const uniqueCats = Array.from(catMap.values());
-          setCategories(uniqueCats);
-          if (!categoryId && uniqueCats.length > 0) {
-            setCategoryId(uniqueCats[0].id);
+        if (data.categories && data.categories.length > 0) {
+          setCategories(data.categories);
+          if (!categoryId) {
+            setCategoryId(data.categories[0].id);
           }
         }
       } catch (err) {
@@ -86,38 +79,38 @@ export default function ScriptFormModal({ scriptToEdit, onClose, onSaved }: Scri
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-xl w-full my-8 p-6 sm:p-8 shadow-2xl relative border border-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto">
+      <div className="bg-white dark:bg-zinc-900 rounded-3xl max-w-xl w-full my-8 p-6 sm:p-8 shadow-2xl relative border-2 border-slate-200 dark:border-zinc-700">
         <button
           onClick={onClose}
-          className="absolute top-6 right-6 p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          className="absolute top-6 right-6 p-2 rounded-full text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <h2 className="text-xl font-bold text-slate-900 mb-6">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-zinc-100 mb-6">
           {scriptToEdit ? 'Редактирование скрипта' : 'Добавление нового скрипта'}
         </h2>
 
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">
+          <div className="mb-4 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border-2 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-sm font-semibold">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
               Категория *
             </label>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-zinc-100 bg-white dark:bg-zinc-800"
               required
             >
               {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
+                <option key={cat.id} value={cat.id} className="text-slate-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 font-medium py-1">
                   {cat.name}
                 </option>
               ))}
@@ -125,7 +118,7 @@ export default function ScriptFormModal({ scriptToEdit, onClose, onSaved }: Scri
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
               Заголовок / Название темы *
             </label>
             <input
@@ -133,13 +126,13 @@ export default function ScriptFormModal({ scriptToEdit, onClose, onSaved }: Scri
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Например: Отказ выходить к доске"
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-sm font-medium focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-zinc-100"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
               Описание ситуации / Отказ *
             </label>
             <textarea
@@ -147,13 +140,13 @@ export default function ScriptFormModal({ scriptToEdit, onClose, onSaved }: Scri
               onChange={(e) => setSituation(e.target.value)}
               placeholder="Опишите, какая ситуация возникает в школе..."
               rows={3}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-sm font-medium focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-zinc-100"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
               Рекомендуемый текст скрипта / фразы *
             </label>
             <textarea
@@ -161,13 +154,13 @@ export default function ScriptFormModal({ scriptToEdit, onClose, onSaved }: Scri
               onChange={(e) => setContent(e.target.value)}
               placeholder="«Точные слова и алгоритм ответа учителя...»"
               rows={4}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-sm font-medium focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-zinc-100"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
               Методический совет / Рекомендация (опционально)
             </label>
             <textarea
@@ -175,7 +168,7 @@ export default function ScriptFormModal({ scriptToEdit, onClose, onSaved }: Scri
               onChange={(e) => setMethodTip(e.target.value)}
               placeholder="Совет по тону речи, невербальным сигналам и границам..."
               rows={2}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-sm font-medium focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-zinc-100"
             />
           </div>
 
@@ -183,14 +176,14 @@ export default function ScriptFormModal({ scriptToEdit, onClose, onSaved }: Scri
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+              className="px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
             >
               Отмена
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              className="px-5 py-2.5 rounded-2xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors flex items-center gap-1.5 disabled:opacity-50 shadow-md cursor-pointer"
             >
               <Save className="w-4 h-4" />
               {isLoading ? 'Сохранение...' : 'Сохранить скрипт'}

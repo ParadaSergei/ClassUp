@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
+import ScriptFormModal from '@/components/ScriptFormModal';
+import ScriptModal from '@/components/ScriptModal';
+import { ScriptItem } from '@/components/ScriptCard';
 import {
   Users,
   FileSpreadsheet,
@@ -13,8 +16,17 @@ import {
   Upload,
   ShieldCheck,
   CheckCircle2,
-  AlertCircle,
   X,
+  FileText,
+  Eye,
+  EyeOff,
+  Lock,
+  Unlock,
+  MessageSquare,
+  MoreVertical,
+  Share2,
+  Send,
+  Check,
 } from 'lucide-react';
 import {
   BarChart,
@@ -27,9 +39,10 @@ import {
 } from 'recharts';
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'excel'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'scripts' | 'excel'>('analytics');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
+  const [adminScripts, setAdminScripts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // User modal state
@@ -38,20 +51,41 @@ export default function AdminPage() {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
-  const [userRole, setUserRole] = useState('TEACHER');
+  const [userRole, setUserRole] = useState('USER');
+  const [userIsActive, setUserIsActive] = useState(true);
   const [userError, setUserError] = useState('');
 
+  // Script modal state
+  const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
+  const [scriptToEdit, setScriptToEdit] = useState<ScriptItem | null>(null);
+
+  // Notification script preview modal state
+  const [selectedScriptFromNotification, setSelectedScriptFromNotification] = useState<ScriptItem | null>(null);
+
+  // Script Actions Menu state
+  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
+
+  // Share Modal state
+  const [shareScript, setShareScript] = useState<any | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [shareMessage, setShareMessage] = useState('');
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
+
   // Excel file upload state
+  const [importType, setImportType] = useState<'scripts' | 'users'>('scripts');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importStatus, setImportStatus] = useState<string>('');
+  const [importErrors, setImportErrors] = useState<string[]>([]);
   const [isImporting, setIsImporting] = useState<boolean>(false);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [statsRes, usersRes] = await Promise.all([
+      const [statsRes, usersRes, scriptsRes] = await Promise.all([
         fetch('/api/admin/stats'),
         fetch('/api/admin/users'),
+        fetch('/api/admin/scripts'),
       ]);
 
       if (statsRes.ok) {
@@ -61,7 +95,12 @@ export default function AdminPage() {
 
       if (usersRes.ok) {
         const usersData = await usersRes.json();
-        setUsers(usersData.users);
+        setUsers(usersData.users || []);
+      }
+
+      if (scriptsRes.ok) {
+        const scriptsData = await scriptsRes.json();
+        setAdminScripts(scriptsData.scripts || []);
       }
     } catch (err) {
       console.error('Error fetching admin data:', err);
@@ -74,7 +113,17 @@ export default function AdminPage() {
     fetchData();
   }, []);
 
-  // Save User (Create / Edit)
+  const openScriptById = (scriptId: string) => {
+    fetch(`/api/scripts/${scriptId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.script) {
+          setSelectedScriptFromNotification(data.script);
+        }
+      })
+      .catch((err) => console.error('Error opening script from notification:', err));
+  };
+
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setUserError('');
@@ -91,6 +140,7 @@ export default function AdminPage() {
           email: userEmail,
           password: userPassword,
           role: userRole,
+          isActive: userIsActive,
         }),
       });
 
@@ -112,7 +162,8 @@ export default function AdminPage() {
     setUserName('');
     setUserEmail('');
     setUserPassword('');
-    setUserRole('TEACHER');
+    setUserRole('USER');
+    setUserIsActive(true);
     setUserError('');
   };
 
@@ -122,7 +173,23 @@ export default function AdminPage() {
     setUserEmail(user.email);
     setUserPassword('');
     setUserRole(user.role);
+    setUserIsActive(user.isActive !== undefined ? user.isActive : true);
     setIsUserModalOpen(true);
+  };
+
+  const handleToggleUserActive = async (user: any) => {
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !user.isActive }),
+      });
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (err) {
+      console.error('Error toggling user status:', err);
+    }
   };
 
   const handleDeleteUser = async (id: string) => {
@@ -140,21 +207,95 @@ export default function AdminPage() {
     }
   };
 
-  // Excel Export
-  const handleExportExcel = (type: 'scripts' | 'users') => {
-    window.open(`/api/excel/export?type=${type}`, '_blank');
+  const handleTogglePublishScript = async (script: any) => {
+    try {
+      const res = await fetch(`/api/admin/scripts/${script.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPublished: !script.isPublished }),
+      });
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (err) {
+      console.error('Error toggling publish status:', err);
+    }
   };
 
-  // Excel Import
+  const handleDeleteScript = async (id: string) => {
+    if (!confirm('Вы действительно хотите удалить этот скрипт?')) return;
+    try {
+      const res = await fetch(`/api/admin/scripts/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (err) {
+      console.error('Error deleting script:', err);
+    }
+  };
+
+  const handleOpenShareModal = (script: any) => {
+    setShareScript(script);
+    setSelectedUserIds([]);
+    setShareMessage(`Администратор рекомендует к изучению скрипт: "${script.title}"`);
+    setShareSuccess(false);
+    setOpenActionMenuId(null);
+  };
+
+  const handleSendShareNotification = async () => {
+    if (!shareScript || selectedUserIds.length === 0) return;
+    setIsSharing(true);
+    try {
+      const res = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scriptId: shareScript.id,
+          userIds: selectedUserIds,
+          message: shareMessage,
+        }),
+      });
+
+      if (res.ok) {
+        setShareSuccess(true);
+        setTimeout(() => {
+          setShareScript(null);
+          setShareSuccess(false);
+        }, 1500);
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Ошибка при отправке ссылки');
+      }
+    } catch (err) {
+      console.error('Error sharing script:', err);
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const handleSelectAllUsersToShare = () => {
+    if (selectedUserIds.length === users.length) {
+      setSelectedUserIds([]);
+    } else {
+      setSelectedUserIds(users.map((u) => u.id));
+    }
+  };
+
+  const handleExportExcel = (type: 'scripts' | 'users' | 'comments') => {
+    window.open(`/api/excel?type=${type}`, '_blank');
+  };
+
   const handleImportExcel = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!importFile) return;
 
     setIsImporting(true);
     setImportStatus('');
+    setImportErrors([]);
 
     const formData = new FormData();
     formData.append('file', importFile);
+    formData.append('type', importType);
 
     try {
       const res = await fetch('/api/excel', {
@@ -168,7 +309,10 @@ export default function AdminPage() {
         throw new Error(data.error || 'Ошибка при импорте Excel');
       }
 
-      setImportStatus(`Успешно! ${data.message}`);
+      setImportStatus(data.message);
+      if (data.errors) {
+        setImportErrors(data.errors);
+      }
       setImportFile(null);
       fetchData();
     } catch (err: any) {
@@ -178,420 +322,779 @@ export default function AdminPage() {
     }
   };
 
-  const COLORS = ['#4f46e5', '#06b6d4', '#f59e0b', '#10b981', '#ec4899'];
+  const COLORS = ['#6366f1', '#06b6d4', '#f59e0b', '#10b981', '#ec4899'];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
-      <Header />
+    <div className="min-h-screen flex flex-col font-sans transition-colors">
+      <Header onSelectScriptFromNotification={(scriptId) => openScriptById(scriptId)} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full">
-        {/* Title */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-          <div>
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
-              Администрирование ClassUp
-            </span>
-            <h1 className="text-3xl font-black text-slate-900 mt-2">Панель управления</h1>
+      <div className="animated-gradient-color flex-1 w-full py-8 px-4 sm:px-6 lg:px-8">
+        <main className="max-w-7xl mx-auto w-full">
+          {/* Top Panel Header - Fixed Layout & Stable Position */}
+          <div className="mb-6 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-6 rounded-3xl border-2 border-slate-200 dark:border-zinc-800 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="text-left flex-shrink-0">
+              <span className="px-3.5 py-1.5 rounded-full text-xs font-black bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border-2 border-amber-300 dark:border-amber-700">
+                Администрирование ClassUp
+              </span>
+              <h1 className="text-3xl font-black text-slate-900 dark:text-zinc-100 mt-2">Панель управления</h1>
+            </div>
+
+            {/* Nav Tabs - Fixed Grid / Row Layout */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-100 dark:bg-zinc-800 p-2 rounded-2xl border-2 border-slate-300 dark:border-zinc-700 shadow-sm flex-shrink-0">
+              <button
+                onClick={() => setActiveTab('analytics')}
+                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                  activeTab === 'analytics'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>Аналитика</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                  activeTab === 'users'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>Пользователи ({users.length})</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('scripts')}
+                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                  activeTab === 'scripts'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                <span>Скрипты ({adminScripts.length})</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('excel')}
+                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                  activeTab === 'excel'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
+                }`}
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Excel Модуль</span>
+              </button>
+            </div>
           </div>
 
-          {/* Nav Tabs */}
-          <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-sm">
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                activeTab === 'analytics'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              Аналитика
-            </button>
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                activeTab === 'users'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              Пользователи ({users.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('excel')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                activeTab === 'excel'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              Excel Модуль
-            </button>
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        {isLoading ? (
-          <div className="h-96 bg-white rounded-3xl border border-slate-200 animate-pulse flex items-center justify-center text-slate-400">
-            Загрузка данных системы...
-          </div>
-        ) : (
-          <>
-            {/* ANALYTICS TAB */}
-            {activeTab === 'analytics' && stats && (
-              <div className="space-y-8">
-                {/* Stats Summary Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
-                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      Всего скриптов
+          {/* Tab Content */}
+          {isLoading ? (
+            <div className="h-96 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl border-2 border-slate-200 dark:border-zinc-800 animate-pulse flex items-center justify-center text-slate-500 font-bold shadow-xl">
+              Загрузка данных системы...
+            </div>
+          ) : (
+            <>
+              {/* ANALYTICS TAB */}
+              {activeTab === 'analytics' && stats && (
+                <div className="space-y-8">
+                  {/* Stats Summary Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-6 border-2 border-slate-200 dark:border-zinc-800 shadow-xl">
+                      <div className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+                        Всего скриптов
+                      </div>
+                      <div className="text-3xl font-black text-indigo-600 dark:text-indigo-400 mt-2">
+                        {stats.summary.totalScripts}
+                      </div>
                     </div>
-                    <div className="text-3xl font-black text-indigo-600 mt-2">
-                      {stats.summary.totalScripts}
+                    <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-6 border-2 border-slate-200 dark:border-zinc-800 shadow-xl">
+                      <div className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+                        Пользователей
+                      </div>
+                      <div className="text-3xl font-black text-amber-500 mt-2">
+                        {stats.summary.totalUsers}
+                      </div>
                     </div>
-                  </div>
-                  <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
-                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      Пользователей
+                    <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-6 border-2 border-slate-200 dark:border-zinc-800 shadow-xl">
+                      <div className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+                        Оценок выставлено
+                      </div>
+                      <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-2">
+                        {stats.summary.totalRatings}
+                      </div>
                     </div>
-                    <div className="text-3xl font-black text-amber-500 mt-2">
-                      {stats.summary.totalUsers}
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
-                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      Оценок выставлено
-                    </div>
-                    <div className="text-3xl font-black text-emerald-600 mt-2">
-                      {stats.summary.totalRatings}
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
-                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      Комментариев
-                    </div>
-                    <div className="text-3xl font-black text-sky-600 mt-2">
-                      {stats.summary.totalComments}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Recharts Distribution Chart */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
-                    <h3 className="text-base font-bold text-slate-900 mb-6">
-                      Распределение скриптов по категориям
-                    </h3>
-                    <div className="h-64 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={stats.categoryStats}>
-                          <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} />
-                          <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} />
-                          <Tooltip />
-                          <Bar dataKey="count" radius={[8, 8, 0, 0]}>
-                            {stats.categoryStats.map((entry: any, index: number) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                    <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-6 border-2 border-slate-200 dark:border-zinc-800 shadow-xl">
+                      <div className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+                        Комментариев
+                      </div>
+                      <div className="text-3xl font-black text-sky-600 dark:text-sky-400 mt-2">
+                        {stats.summary.totalComments}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Top Rated Scripts Table */}
-                  <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
-                    <h3 className="text-base font-bold text-slate-900 mb-4">
-                      Топ полезных скриптов по рейтингу
-                    </h3>
-                    <div className="space-y-3">
-                      {stats.topScripts.map((sc: any, idx: number) => (
-                        <div
-                          key={sc.id}
-                          className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-extrabold flex items-center justify-center text-xs">
-                              {idx + 1}
-                            </span>
-                            <div>
-                              <div className="font-bold text-slate-800 line-clamp-1">{sc.title}</div>
-                              <div className="text-slate-400">{sc.category}</div>
+                  {/* Recharts Distribution Chart */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-6 border-2 border-slate-200 dark:border-zinc-800 shadow-xl">
+                      <h3 className="text-base font-black text-slate-900 dark:text-zinc-100 mb-6">
+                        Распределение скриптов по категориям
+                      </h3>
+                      <div className="h-64 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={stats.categoryStats}>
+                            <XAxis dataKey="name" stroke="#a1a1aa" fontSize={12} tickLine={false} />
+                            <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: '#18181b',
+                                borderColor: '#3f3f46',
+                                borderRadius: '0.75rem',
+                                color: '#f4f4f5',
+                              }}
+                            />
+                            <Bar dataKey="count" radius={[8, 8, 0, 0]}>
+                              {stats.categoryStats.map((entry: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Top Rated Scripts Table */}
+                    <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-6 border-2 border-slate-200 dark:border-zinc-800 shadow-xl">
+                      <h3 className="text-base font-black text-slate-900 dark:text-zinc-100 mb-4">
+                        Топ полезных скриптов по рейтингу
+                      </h3>
+                      <div className="space-y-3">
+                        {stats.topScripts.map((sc: any, idx: number) => (
+                          <div
+                            key={sc.id}
+                            className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-zinc-800/80 border-2 border-slate-200 dark:border-zinc-700 text-xs"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="w-6 h-6 rounded-full bg-indigo-600 text-white font-black flex items-center justify-center text-xs shadow-xs">
+                                {idx + 1}
+                              </span>
+                              <div>
+                                <div className="font-bold text-slate-900 dark:text-zinc-100 line-clamp-1">{sc.title}</div>
+                                <div className="text-slate-500 dark:text-zinc-400 font-medium">{sc.category}</div>
+                              </div>
+                            </div>
+                            <div className="text-right font-bold">
+                              <div className="text-amber-500 font-black">⭐ {sc.avgRating}</div>
+                              <div className="text-slate-500 dark:text-zinc-400">{sc.ratingsCount} отзыв.</div>
                             </div>
                           </div>
-                          <div className="text-right font-semibold">
-                            <div className="text-amber-500 font-extrabold">⭐ {sc.avgRating}</div>
-                            <div className="text-slate-400">{sc.ratingsCount} отзыв.</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* USERS MANAGEMENT TAB */}
-            {activeTab === 'users' && (
-              <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900">Управление пользователями</h3>
-                    <p className="text-xs text-slate-500">
-                      Назначение ролей, создание и удаление учетных записей
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      resetUserForm();
-                      setIsUserModalOpen(true);
-                    }}
-                    className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1.5 shadow-sm"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Создать пользователя
-                  </button>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        <th className="py-3 px-4">Имя / ФИО</th>
-                        <th className="py-3 px-4">Email</th>
-                        <th className="py-3 px-4">Роль</th>
-                        <th className="py-3 px-4">Активность</th>
-                        <th className="py-3 px-4 text-right">Действия</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                      {users.map((u) => (
-                        <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3.5 px-4 font-semibold text-slate-900 flex items-center gap-2">
-                            {u.name}
-                            {u.role === 'ADMIN' && (
-                              <ShieldCheck className="w-4 h-4 text-amber-600" />
-                            )}
-                          </td>
-                          <td className="py-3.5 px-4 text-slate-600 text-xs">{u.email}</td>
-                          <td className="py-3.5 px-4">
-                            <span
-                              className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                                u.role === 'ADMIN'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-indigo-50 text-indigo-700'
-                              }`}
-                            >
-                              {u.role === 'ADMIN' ? 'Администратор' : 'Учитель'}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 text-xs text-slate-500">
-                            Скрипты: {u._count?.scripts || 0} • Оценки: {u._count?.ratings || 0}
-                          </td>
-                          <td className="py-3.5 px-4 text-right space-x-2">
-                            <button
-                              onClick={() => handleEditUserClick(u)}
-                              className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-lg hover:bg-slate-100"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteUser(u.id)}
-                              className="p-1.5 text-slate-500 hover:text-rose-600 rounded-lg hover:bg-rose-50"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* EXCEL MODULE TAB */}
-            {activeTab === 'excel' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Export Card */}
-                <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                  <div>
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-4">
-                      <Download className="w-6 h-6" />
-                    </div>
-                    <h3 className="text-xl font-black text-slate-900 mb-2">
-                      Экспорт данных в Excel (.xlsx)
-                    </h3>
-                    <p className="text-xs text-slate-600 leading-relaxed mb-6">
-                      Выгрузите полную базу данных скриптов, ситуаций, рейтингов и пользователей в удобную таблицу Microsoft Excel для дальнейшего методического анализа.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => handleExportExcel('scripts')}
-                      className="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
-                    >
-                      <FileSpreadsheet className="w-4 h-4" />
-                      Скачать таблицы скриптов (.xlsx)
-                    </button>
-                    <button
-                      onClick={() => handleExportExcel('users')}
-                      className="w-full py-3 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-900 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Users className="w-4 h-4" />
-                      Скачать список пользователей (.xlsx)
-                    </button>
-                  </div>
-                </div>
-
-                {/* Import Card */}
-                <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-sm flex flex-col justify-between">
-                  <div>
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center mb-4">
-                      <Upload className="w-6 h-6" />
-                    </div>
-                    <h3 className="text-xl font-black text-slate-900 mb-2">
-                      Импорт скриптов из Excel
-                    </h3>
-                    <p className="text-xs text-slate-600 leading-relaxed mb-4">
-                      Загрузите готовый документ Excel (.xlsx) с колонками: «Заголовок», «Ситуация», «Текст скрипта / фраза», «Методический совет», «Категория».
-                    </p>
-                  </div>
-
-                  <form onSubmit={handleImportExcel} className="space-y-4">
-                    <input
-                      type="file"
-                      accept=".xlsx, .xls"
-                      onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-                      className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                      required
-                    />
-
-                    {importStatus && (
-                      <div
-                        className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                          importStatus.startsWith('Ошибка')
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        }`}
-                      >
-                        <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                        <span>{importStatus}</span>
+                        ))}
                       </div>
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={isImporting || !importFile}
-                      className="w-full py-3 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
-                    >
-                      <Upload className="w-4 h-4" />
-                      {isImporting ? 'Импортирование...' : 'Загрузить в систему'}
-                    </button>
-                  </form>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* User Create/Edit Modal */}
-        {isUserModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative border border-slate-100">
-              <button
-                onClick={() => setIsUserModalOpen(false)}
-                className="absolute top-6 right-6 p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              <h2 className="text-xl font-bold text-slate-900 mb-6">
-                {editingUser ? 'Редактировать пользователя' : 'Создание нового пользователя'}
-              </h2>
-
-              {userError && (
-                <div className="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 text-xs border border-rose-200">
-                  {userError}
+                    </div>
+                  </div>
                 </div>
               )}
 
-              <form onSubmit={handleSaveUser} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    ФИО / Имя пользователя *
-                  </label>
-                  <input
-                    type="text"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500"
-                    required
-                  />
+              {/* USERS MANAGEMENT TAB */}
+              {activeTab === 'users' && (
+                <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-6 border-2 border-slate-200 dark:border-zinc-800 shadow-xl">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="text-left">
+                      <h3 className="text-lg font-black text-slate-900 dark:text-zinc-100">Управление пользователями</h3>
+                      <p className="text-xs text-slate-600 dark:text-zinc-400 font-medium">
+                        Назначение ролей, блокировка пользователей, создание и удаление учетных записей
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        resetUserForm();
+                        setIsUserModalOpen(true);
+                      }}
+                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-md cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Создать пользователя
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b-2 border-slate-200 dark:border-zinc-800 text-xs font-black text-slate-600 dark:text-zinc-300 uppercase tracking-wider">
+                          <th className="py-3 px-4">Имя / ФИО</th>
+                          <th className="py-3 px-4">Email</th>
+                          <th className="py-3 px-4">Роль</th>
+                          <th className="py-3 px-4">Статус</th>
+                          <th className="py-3 px-4">Активность</th>
+                          <th className="py-3 px-4 text-right">Действия</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-zinc-800 text-sm text-slate-800 dark:text-zinc-200 font-medium">
+                        {users.map((u) => (
+                          <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                            <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-zinc-100 flex items-center gap-2">
+                              {u.name}
+                              {u.role === 'ADMIN' && (
+                                <ShieldCheck className="w-4 h-4 text-amber-500" />
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4 text-slate-600 dark:text-zinc-400 text-xs font-bold">{u.email}</td>
+                            <td className="py-3.5 px-4">
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                  u.role === 'ADMIN'
+                                    ? 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
+                                    : 'bg-indigo-50 dark:bg-indigo-950 text-indigo-900 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800'
+                                }`}
+                              >
+                                {u.role === 'ADMIN' ? 'Администратор' : 'Педагог'}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <button
+                                onClick={() => handleToggleUserActive(u)}
+                                title={u.isActive ? 'Заблокировать пользователя' : 'Разблокировать пользователя'}
+                                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-colors border ${
+                                  u.isActive
+                                    ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700'
+                                    : 'bg-rose-100 dark:bg-rose-950 text-rose-900 dark:text-rose-200 border-rose-300 dark:border-rose-700'
+                                }`}
+                              >
+                                {u.isActive ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                                <span>{u.isActive ? 'Активен' : 'Заблокирован'}</span>
+                              </button>
+                            </td>
+                            <td className="py-3.5 px-4 text-xs font-semibold text-slate-600 dark:text-zinc-400">
+                              Скрипты: {u._count?.scripts || 0} • Оценки: {u._count?.ratings || 0}
+                            </td>
+                            <td className="py-3.5 px-4 text-right space-x-2">
+                              <button
+                                onClick={() => handleEditUserClick(u)}
+                                className="p-2 text-slate-600 dark:text-zinc-300 hover:text-indigo-600 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-700 cursor-pointer"
+                                title="Редактировать"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(u.id)}
+                                className="p-2 text-slate-600 dark:text-zinc-300 hover:text-rose-600 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-slate-200 dark:border-zinc-700 cursor-pointer"
+                                title="Удалить"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* SCRIPTS MANAGEMENT TAB WITH THREE DOTS DROPDOWN AND SHARE */}
+              {activeTab === 'scripts' && (
+                <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-6 border-2 border-slate-200 dark:border-zinc-800 shadow-xl">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="text-left">
+                      <h3 className="text-lg font-black text-slate-900 dark:text-zinc-100">Управление скриптами</h3>
+                      <p className="text-xs text-slate-600 dark:text-zinc-400 font-medium">
+                        Модерация, публикация/скрытие, отправка ссылок пользователям, редактирование и удаление скриптов
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setScriptToEdit(null);
+                        setIsScriptModalOpen(true);
+                      }}
+                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-md cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Добавить новый скрипт
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b-2 border-slate-200 dark:border-zinc-800 text-xs font-black text-slate-600 dark:text-zinc-300 uppercase tracking-wider">
+                          <th className="py-3 px-4">Заголовок / Ситуация</th>
+                          <th className="py-3 px-4">Категория</th>
+                          <th className="py-3 px-4">Автор</th>
+                          <th className="py-3 px-4">Статус публикации</th>
+                          <th className="py-3 px-4">Статистика</th>
+                          <th className="py-3 px-4 text-right">Действия</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-zinc-800 text-sm text-slate-800 dark:text-zinc-200 font-medium">
+                        {adminScripts.map((s) => (
+                          <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                            <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-zinc-100 max-w-xs">
+                              <div className="line-clamp-1">{s.title}</div>
+                              <div className="text-xs font-medium text-slate-500 dark:text-zinc-400 line-clamp-1">
+                                {s.situation}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 text-xs font-bold text-slate-700 dark:text-zinc-300">
+                              {s.category}
+                            </td>
+                            <td className="py-3.5 px-4 text-xs font-bold text-slate-700 dark:text-zinc-300">
+                              {s.author}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span
+                                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border ${
+                                  s.isPublished
+                                    ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700'
+                                    : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700'
+                                }`}
+                              >
+                                {s.isPublished ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                                <span>{s.isPublished ? 'Опубликован' : 'Скрыт'}</span>
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 text-xs font-bold text-slate-600 dark:text-zinc-400">
+                              ⭐ {s.avgRating} ({s.ratingsCount}) • 💬 {s.commentsCount}
+                            </td>
+                            <td className="py-3.5 px-4 text-right relative">
+                              {/* Three-dots Menu Trigger Button */}
+                              <button
+                                onClick={() =>
+                                  setOpenActionMenuId(openActionMenuId === s.id ? null : s.id)
+                                }
+                                className="p-2 rounded-xl text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-700 cursor-pointer"
+                                title="Действия со скриптом"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+
+                              {/* Dropdown Menu */}
+                              {openActionMenuId === s.id && (
+                                <div className="absolute right-4 top-12 w-48 bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border-2 border-slate-200 dark:border-zinc-700 py-2 z-30 text-left animate-in fade-in zoom-in-95 duration-100">
+                                  <button
+                                    onClick={() => handleOpenShareModal(s)}
+                                    className="w-full px-4 py-2.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Share2 className="w-4 h-4" />
+                                    Поделиться
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleTogglePublishScript(s);
+                                      setOpenActionMenuId(null);
+                                    }}
+                                    className="w-full px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    {s.isPublished ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    {s.isPublished ? 'Скрыть скрипт' : 'Опубликовать'}
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setScriptToEdit(s);
+                                      setIsScriptModalOpen(true);
+                                      setOpenActionMenuId(null);
+                                    }}
+                                    className="w-full px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                    Редактировать
+                                  </button>
+                                  <div className="my-1 border-t border-slate-100 dark:border-zinc-800" />
+                                  <button
+                                    onClick={() => {
+                                      handleDeleteScript(s.id);
+                                      setOpenActionMenuId(null);
+                                    }}
+                                    className="w-full px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    Удалить
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* EXCEL MODULE TAB */}
+              {activeTab === 'excel' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Export Card */}
+                  <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-8 border-2 border-slate-200 dark:border-zinc-800 shadow-xl flex flex-col justify-between">
+                    <div className="text-left">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center mb-4 border border-emerald-300 dark:border-emerald-700">
+                        <Download className="w-6 h-6" />
+                      </div>
+                      <h3 className="text-xl font-black text-slate-900 dark:text-zinc-100 mb-2">
+                        Экспорт данных в Excel (.xlsx)
+                      </h3>
+                      <p className="text-xs text-slate-600 dark:text-zinc-400 font-medium leading-relaxed mb-6">
+                        Выгрузите таблицы скриптов, пользователей или комментариев в удобную таблицу Microsoft Excel для проведения методического анализа.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => handleExportExcel('scripts')}
+                        className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-extrabold transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        Скачать таблицы скриптов (.xlsx)
+                      </button>
+                      <button
+                        onClick={() => handleExportExcel('users')}
+                        className="w-full py-3.5 bg-slate-800 dark:bg-zinc-800 hover:bg-slate-900 dark:hover:bg-zinc-700 text-white rounded-2xl text-xs font-extrabold transition-colors flex items-center justify-center gap-2 border border-slate-700 dark:border-zinc-600 cursor-pointer"
+                      >
+                        <Users className="w-4 h-4" />
+                        Скачать список пользователей (.xlsx)
+                      </button>
+                      <button
+                        onClick={() => handleExportExcel('comments')}
+                        className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-extrabold transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        Скачать базу комментариев (.xlsx)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Import Card */}
+                  <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-8 border-2 border-slate-200 dark:border-zinc-800 shadow-xl flex flex-col justify-between">
+                    <div className="text-left">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 flex items-center justify-center mb-4 border border-indigo-300 dark:border-indigo-700">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      <h3 className="text-xl font-black text-slate-900 dark:text-zinc-100 mb-2">
+                        Массовый импорт из Excel
+                      </h3>
+                      <p className="text-xs text-slate-600 dark:text-zinc-400 font-medium leading-relaxed mb-4">
+                        Выберите тип загружаемых данных (скрипты или пользователи) и прикрепите документ Excel (.xlsx).
+                      </p>
+                    </div>
+
+                    <form onSubmit={handleImportExcel} className="space-y-4 text-left">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
+                          Тип импортируемых данных
+                        </label>
+                        <select
+                          value={importType}
+                          onChange={(e) => setImportType(e.target.value as 'scripts' | 'users')}
+                          className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-xs font-bold text-slate-900 dark:text-zinc-100"
+                        >
+                          <option value="scripts">Массовый импорт скриптов</option>
+                          <option value="users">Массовый импорт пользователей</option>
+                        </select>
+                      </div>
+
+                      <input
+                        type="file"
+                        accept=".xlsx, .xls"
+                        onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                        className="w-full text-xs font-semibold text-slate-700 dark:text-zinc-300 file:mr-4 file:py-2.5 file:px-4 file:rounded-2xl file:border-2 file:border-indigo-300 dark:file:border-indigo-700 file:text-xs file:font-bold file:bg-indigo-50 dark:file:bg-indigo-950 file:text-indigo-800 dark:file:text-indigo-200 hover:file:bg-indigo-100 cursor-pointer"
+                        required
+                      />
+
+                      {importStatus && (
+                        <div
+                          className={`p-3.5 rounded-2xl text-xs font-bold ${
+                            importStatus.startsWith('Ошибка')
+                              ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border-2 border-rose-300 dark:border-rose-800'
+                              : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-2 border-emerald-300 dark:border-emerald-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                            <span>{importStatus}</span>
+                          </div>
+                          {importErrors.length > 0 && (
+                            <ul className="mt-2 text-[11px] list-disc list-inside space-y-1 font-medium opacity-90 max-h-32 overflow-y-auto">
+                              {importErrors.map((err, i) => (
+                                <li key={i}>{err}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={isImporting || !importFile}
+                        className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-extrabold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shadow-md cursor-pointer"
+                      >
+                        <Upload className="w-4 h-4" />
+                        {isImporting ? 'Импортирование...' : 'Загрузить в систему'}
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Notification Script Detailed View Modal */}
+          {selectedScriptFromNotification && (
+            <ScriptModal
+              script={selectedScriptFromNotification}
+              onClose={() => setSelectedScriptFromNotification(null)}
+              onUpdate={fetchData}
+            />
+          )}
+
+          {/* Share Modal Dialog */}
+          {shareScript && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-xs">
+              <div className="bg-white dark:bg-zinc-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border-2 border-slate-200 dark:border-zinc-700 text-left">
+                <button
+                  onClick={() => setShareScript(null)}
+                  className="absolute top-6 right-6 p-2 rounded-full text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 rounded-2xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
+                    <Share2 className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900 dark:text-zinc-100">
+                      Отправить ссылку на скрипт
+                    </h2>
+                    <p className="text-xs font-bold text-slate-500 dark:text-zinc-400 line-clamp-1">
+                      {shareScript.title}
+                    </p>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Email адрес *
-                  </label>
-                  <input
-                    type="email"
-                    value={userEmail}
-                    onChange={(e) => setUserEmail(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500"
-                    required
-                  />
-                </div>
+                {shareSuccess ? (
+                  <div className="py-8 text-center space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                      <Check className="w-6 h-6" />
+                    </div>
+                    <div className="text-sm font-black text-slate-900 dark:text-zinc-100">
+                      Уведомления успешно отправлены!
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
+                        Текст сообщения / Комментарий
+                      </label>
+                      <textarea
+                        value={shareMessage}
+                        onChange={(e) => setShareMessage(e.target.value)}
+                        rows={2}
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-xs font-medium text-slate-900 dark:text-zinc-100"
+                      />
+                    </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Пароль {editingUser && '(оставьте пустым, если не меняете)'}
-                  </label>
-                  <input
-                    type="password"
-                    value={userPassword}
-                    onChange={(e) => setUserPassword(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500"
-                    required={!editingUser}
-                  />
-                </div>
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-slate-800 dark:text-zinc-200">
+                          Выберите получателей ({selectedUserIds.length} из {users.length})
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleSelectAllUsersToShare}
+                          className="text-xs font-black text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                        >
+                          {selectedUserIds.length === users.length ? 'Снять все' : 'Выбрать всех'}
+                        </button>
+                      </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Роль пользователя
-                  </label>
-                  <select
-                    value={userRole}
-                    onChange={(e) => setUserRole(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="TEACHER">Учитель / Педагог</option>
-                    <option value="ADMIN">Администратор</option>
-                  </select>
-                </div>
+                      <div className="max-h-56 overflow-y-auto space-y-2 pr-1 border-2 border-slate-200 dark:border-zinc-800 rounded-2xl p-3 bg-slate-50 dark:bg-zinc-800/50">
+                        {users.map((u) => {
+                          const isSelected = selectedUserIds.includes(u.id);
+                          return (
+                            <label
+                              key={u.id}
+                              className={`flex items-center justify-between p-2.5 rounded-xl border-2 transition-colors cursor-pointer ${
+                                isSelected
+                                  ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700'
+                                  : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    if (isSelected) {
+                                      setSelectedUserIds(selectedUserIds.filter((id) => id !== u.id));
+                                    } else {
+                                      setSelectedUserIds([...selectedUserIds, u.id]);
+                                    }
+                                  }}
+                                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <div>
+                                  <div className="text-xs font-extrabold text-slate-900 dark:text-zinc-100">
+                                    {u.name}
+                                  </div>
+                                  <div className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                                    {u.email}
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="text-[10px] font-bold text-slate-400">
+                                {u.role === 'ADMIN' ? 'Админ' : 'Педагог'}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-                <div className="pt-4 flex items-center justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsUserModalOpen(false)}
-                    className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 text-xs font-bold bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-sm"
-                  >
-                    Сохранить
-                  </button>
-                </div>
-              </form>
+                    <div className="pt-2 flex items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setShareScript(null)}
+                        className="px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-2xl cursor-pointer"
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSharing || selectedUserIds.length === 0}
+                        onClick={handleSendShareNotification}
+                        className="px-5 py-2.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>{isSharing ? 'Отправка...' : 'Отправить'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
-      </main>
+          )}
+
+          {/* User Create/Edit Modal */}
+          {isUserModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/75 backdrop-blur-xs">
+              <div className="bg-white dark:bg-zinc-900 rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative border-2 border-slate-200 dark:border-zinc-700 text-left">
+                <button
+                  onClick={() => setIsUserModalOpen(false)}
+                  className="absolute top-6 right-6 p-2 rounded-full text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <h2 className="text-xl font-bold text-slate-900 dark:text-zinc-100 mb-6">
+                  {editingUser ? 'Редактировать пользователя' : 'Создание нового пользователя'}
+                </h2>
+
+                {userError && (
+                  <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 text-xs font-bold border-2 border-rose-300 dark:border-rose-800">
+                    {userError}
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveUser} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
+                      ФИО / Имя пользователя *
+                    </label>
+                    <input
+                      type="text"
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-sm font-semibold text-slate-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
+                      Email адрес *
+                    </label>
+                    <input
+                      type="email"
+                      value={userEmail}
+                      onChange={(e) => setUserEmail(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-sm font-semibold text-slate-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
+                      Пароль {editingUser && '(оставьте пустым, если не меняете)'}
+                    </label>
+                    <input
+                      type="password"
+                      value={userPassword}
+                      onChange={(e) => setUserPassword(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-sm font-semibold text-slate-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500"
+                      required={!editingUser}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
+                        Роль
+                      </label>
+                      <select
+                        value={userRole}
+                        onChange={(e) => setUserRole(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-sm font-semibold text-slate-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="USER">Педагог (USER)</option>
+                        <option value="ADMIN">Администратор (ADMIN)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 dark:text-zinc-200 mb-1.5">
+                        Статус
+                      </label>
+                      <select
+                        value={userIsActive ? 'true' : 'false'}
+                        onChange={(e) => setUserIsActive(e.target.value === 'true')}
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-800 rounded-2xl border-2 border-slate-300 dark:border-zinc-600 text-sm font-semibold text-slate-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="true">Активен</option>
+                        <option value="false">Заблокирован</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsUserModalOpen(false)}
+                      className="px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-2xl cursor-pointer"
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-md cursor-pointer"
+                    >
+                      Сохранить
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Script Create/Edit Modal */}
+          {isScriptModalOpen && (
+            <ScriptFormModal
+              scriptToEdit={scriptToEdit}
+              onClose={() => setIsScriptModalOpen(false)}
+              onSaved={fetchData}
+            />
+          )}
+        </main>
+      </div>
     </div>
   );
 }

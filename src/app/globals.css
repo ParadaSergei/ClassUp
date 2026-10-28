@@ -1,26 +1,197 @@
+@import url('https://fonts.googleapis.com/css?family=Exo:400,700');
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg-main: #f8fafc;
+    --bg-card: #ffffff;
+    --border-color: #cbd5e1;
+    --input-bg: #ffffff;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --accent: #4f46e5;
+    --accent-hover: #4338ca;
+    --accent-light: rgba(79, 70, 229, 0.15);
+    --font-family: 'Exo', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  .grey {
+    --bg-main: #18181b;
+    --bg-card: #27272a;
+    --border-color: #52525b;
+    --input-bg: #18181b;
+    --text-primary: #f4f4f5;
+    --text-secondary: #d4d4d8;
+    --accent: #6366f1;
+    --accent-hover: #818cf8;
+    --accent-light: rgba(99, 102, 241, 0.25);
+  }
+
+  .dark {
+    --bg-main: #000000;
+    --bg-card: #09090b;
+    --border-color: #3f3f46;
+    --input-bg: #121215;
+    --text-primary: #fafafa;
+    --text-secondary: #e4e4e7;
+    --accent: #818cf8;
+    --accent-hover: #a5b4fc;
+    --accent-light: rgba(129, 140, 248, 0.25);
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+/* Login Animated Diagonal Stripes Background (Speed halved: 2s -> 4s) */
+.login-animated-bg {
+  width: 100%;
+  background: repeating-linear-gradient(
+    45deg,
+    #606dbc,
+    #606dbc 5%,
+    #465298 5%,
+    #465298 10%
+  );
+  background-size: 100px 100px;
+  animation: move-it 4s linear infinite;
+}
+
+/* Combined Animated Gradient with Moving Stripes Overlay (Speed halved: 8s -> 16s) */
+.animated-gradient-color {
+  position: relative;
+  width: 100%;
+  background: linear-gradient(-45deg, #ff007f, #7f00ff, #00c6ff, #00f2fe, #f59e0b, #ff4e50);
+  background-size: 400% 400%;
+  animation: gradientBG 16s ease infinite;
+  overflow: hidden;
+}
+
+/* Moving Diagonal Stripes Overlay on Top of Animated Gradient (Speed halved: 2s -> 4s) */
+.animated-gradient-color::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.12) 5%,
+    rgba(0, 0, 0, 0.08) 5%,
+    rgba(0, 0, 0, 0.08) 10%
+  );
+  background-size: 100px 100px;
+  animation: move-it 4s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Ensure child elements stay above background overlay */
+.animated-gradient-color > * {
+  position: relative;
+  z-index: 2;
+}
+
+@keyframes move-it {
+  0% {
+    background-position: initial;
+  }
+  100% {
+    background-position: 100px 0px;
+  }
+}
+
+@keyframes gradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Hide Next.js floating dev indicator badge (N) */
+nextjs-portal,
+#nextjs-dev-indicator,
+[data-nextjs-toast-errors-parent] {
+  display: none !important;
+}
+
+/* Distinct Input & Select styles */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="file"],
+textarea,
+select {
+  border: 1.5px solid var(--border-color) !important;
+  background-color: var(--input-bg) !important;
+  color: var(--text-primary) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+select option {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  padding: 8px 12px;
+}
+
+input[type="text"]::placeholder,
+input[type="email"]::placeholder,
+input[type="password"]::placeholder,
+textarea::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-light) !important;
+  outline: none !important;
+}
+
+/* Rounded and shadow utils */
+.card-style {
+  background-color: var(--bg-card);
+  border: 1.5px solid var(--border-color);
+  border-radius: 1.5rem;
+  box-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.06);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.card-style:hover {
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
