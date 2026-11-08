@@ -35,15 +35,23 @@ export async function GET(
     const userRating = user ? script.ratings.find((r) => r.userId === user.id)?.value || null : null;
     const isSaved = user ? (script.savedBy && script.savedBy.length > 0) : false;
 
-    return NextResponse.json({
-      script: {
-        ...script,
-        rating: averageRating,
-        ratingsCount,
-        userRating,
-        isSaved,
+    return NextResponse.json(
+      {
+        script: {
+          ...script,
+          rating: averageRating,
+          avgRating: averageRating,
+          ratingsCount,
+          userRating,
+          isSaved,
+        },
       },
-    });
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Error fetching script by id:', error);
     return NextResponse.json({ error: 'Ошибка при получении скрипта' }, { status: 500 });

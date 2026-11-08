@@ -113,7 +113,28 @@ export default function AdminPage() {
     fetchData();
   }, []);
 
-  const openScriptById = (scriptId: string) => {
+  const openScriptById = (scriptId: string, preloadedScript?: any) => {
+    if (preloadedScript && preloadedScript.title) {
+      setSelectedScriptFromNotification(preloadedScript);
+      return;
+    }
+
+    const localFound = adminScripts.find((s) => s.id === scriptId);
+    if (localFound) {
+      setSelectedScriptFromNotification(localFound);
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(`classup_script_${scriptId}`);
+        if (cached) {
+          setSelectedScriptFromNotification(JSON.parse(cached));
+          return;
+        }
+      } catch (e) {}
+    }
+
     fetch(`/api/scripts/${scriptId}`)
       .then((res) => res.json())
       .then((data) => {
@@ -326,7 +347,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen flex flex-col font-sans transition-colors">
-      <Header onSelectScriptFromNotification={(scriptId) => openScriptById(scriptId)} />
+      <Header onSelectScriptFromNotification={(scriptId, preloaded) => openScriptById(scriptId, preloaded)} />
 
       <div className="animated-gradient-color flex-1 w-full py-8 px-4 sm:px-6 lg:px-8">
         <main className="max-w-7xl mx-auto w-full">

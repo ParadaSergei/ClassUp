@@ -53,7 +53,33 @@ export default function Home() {
     fetchScripts();
   }, [selectedCategory, sortBy]);
 
-  const openScriptById = (scriptId: string) => {
+  const openScriptById = (scriptId: string, preloadedScript?: any) => {
+    // 1. Instant open if preloaded from notification or existing scripts array
+    if (preloadedScript && preloadedScript.title) {
+      setSelectedScript(preloadedScript);
+      return;
+    }
+
+    const localFound = scripts.find((s) => s.id === scriptId);
+    if (localFound) {
+      setSelectedScript(localFound);
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(`classup_script_${scriptId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          setSelectedScript(parsed);
+          return;
+        }
+      } catch (e) {
+        // ignore storage parse error
+      }
+    }
+
+    // Fallback: fast background fetch
     fetch(`/api/scripts/${scriptId}`)
       .then((res) => res.json())
       .then((data) => {
@@ -71,7 +97,7 @@ export default function Home() {
     if (scriptIdParam) {
       openScriptById(scriptIdParam);
     }
-  }, []);
+  }, [scripts]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +130,7 @@ export default function Home() {
       {/* Header */}
       <Header
         onOpenCreate={() => { setScriptToEdit(null); setIsFormOpen(true); }}
-        onSelectScriptFromNotification={(scriptId) => openScriptById(scriptId)}
+        onSelectScriptFromNotification={(scriptId, preloaded) => openScriptById(scriptId, preloaded)}
       />
 
       {/* Hero Section with Indigo Gradient */}

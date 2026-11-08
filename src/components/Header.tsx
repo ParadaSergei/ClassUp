@@ -12,7 +12,7 @@ export default function Header({
   onSelectScriptFromNotification,
 }: {
   onOpenCreate?: () => void;
-  onSelectScriptFromNotification?: (scriptId: string) => void;
+  onSelectScriptFromNotification?: (scriptId: string, preloadedScript?: any) => void;
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -95,23 +95,36 @@ export default function Header({
   };
 
   const handleNotificationClick = async (notif: any) => {
+    // 1. Optimistically mark notification as read in UI without waiting
     if (!notif.isRead) {
-      fetch('/api/notifications', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notificationId: notif.id }),
-      });
       setNotifications((prev) =>
         prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
+
+      fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationId: notif.id }),
+      }).catch((e) => console.error('Error updating notification read state:', e));
     }
+
     setIsBellOpen(false);
 
     const scriptId = notif.scriptId || notif.script?.id;
+    const preloadedScript = notif.script || null;
+
+    if (preloadedScript && typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem(`classup_script_${scriptId}`, JSON.stringify(preloadedScript));
+      } catch (e) {
+        // ignore storage errors
+      }
+    }
+
     if (scriptId) {
       if (onSelectScriptFromNotification) {
-        onSelectScriptFromNotification(scriptId);
+        onSelectScriptFromNotification(scriptId, preloadedScript);
       } else {
         router.push(`/?scriptId=${scriptId}`);
       }

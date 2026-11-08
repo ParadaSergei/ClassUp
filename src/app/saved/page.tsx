@@ -31,7 +31,28 @@ export default function SavedPage() {
     fetchSavedScripts();
   }, []);
 
-  const openScriptById = (scriptId: string) => {
+  const openScriptById = (scriptId: string, preloadedScript?: any) => {
+    if (preloadedScript && preloadedScript.title) {
+      setSelectedScript(preloadedScript);
+      return;
+    }
+
+    const localFound = savedScripts.find((s) => s.id === scriptId);
+    if (localFound) {
+      setSelectedScript(localFound);
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = sessionStorage.getItem(`classup_script_${scriptId}`);
+        if (cached) {
+          setSelectedScript(JSON.parse(cached));
+          return;
+        }
+      } catch (e) {}
+    }
+
     fetch(`/api/scripts/${scriptId}`)
       .then((res) => res.json())
       .then((data) => {
@@ -53,7 +74,7 @@ export default function SavedPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex flex-col font-sans text-slate-800 dark:text-zinc-200">
-      <Header onSelectScriptFromNotification={(scriptId) => openScriptById(scriptId)} />
+      <Header onSelectScriptFromNotification={(scriptId, preloaded) => openScriptById(scriptId, preloaded)} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full">
         <div className="flex items-center gap-3 mb-8">

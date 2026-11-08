@@ -14,20 +14,43 @@ export async function GET() {
     let unreadCount = 0;
 
     if ((prisma as any).notification) {
-      notifications = await (prisma as any).notification.findMany({
+      const rawNotifs = await (prisma as any).notification.findMany({
         where: { userId: currentUser.id },
         include: {
           script: {
-            select: {
-              id: true,
-              title: true,
-              situation: true,
-              categoryEnum: true,
+            include: {
+              category: true,
+              author: { select: { id: true, name: true, role: true } },
+              ratings: true,
+              comments: {
+                include: { user: { select: { id: true, name: true, role: true } } },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+              },
             },
           },
         },
         orderBy: { createdAt: 'desc' },
         take: 20,
+      });
+
+      notifications = rawNotifs.map((n: any) => {
+        if (!n.script) return n;
+        const ratingsCount = n.script.ratings?.length || 0;
+        const ratingSum = n.script.ratings?.reduce((acc: number, r: any) => acc + r.value, 0) || 0;
+        const averageRating = ratingsCount > 0 ? Number((ratingSum / ratingsCount).toFixed(1)) : 0;
+        const userRating = n.script.ratings?.find((r: any) => r.userId === currentUser.id)?.value || null;
+
+        return {
+          ...n,
+          script: {
+            ...n.script,
+            rating: averageRating,
+            avgRating: averageRating,
+            ratingsCount,
+            userRating,
+          },
+        };
       });
 
       unreadCount = await (prisma as any).notification.count({
@@ -40,7 +63,8 @@ export async function GET() {
       // Raw SQL query fallback
       const rawNotifs: any = await prisma.$queryRaw`
         SELECT n.id, n.message, n.is_read as "isRead", n.created_at as "createdAt", n.script_id as "scriptId",
-               s.title as "scriptTitle"
+               s.title as "scriptTitle", s.content, s.situation, s.method_tip as "methodTip",
+               s.category_enum as "categoryEnum"
         FROM notifications n
         LEFT JOIN scripts s ON s.id = n.script_id
         WHERE n.user_id = ${currentUser.id}::uuid
