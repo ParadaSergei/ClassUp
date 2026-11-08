@@ -61,6 +61,15 @@ export async function GET(request: Request) {
 
       const isSaved = currentUser ? (script.savedBy ? script.savedBy.length > 0 : false) : false;
 
+      // Attach user's rating to each comment if available
+      const formattedComments = script.comments.map((comm) => {
+        const commUserRating = script.ratings.find((r) => r.userId === comm.userId)?.value || null;
+        return {
+          ...comm,
+          userRating: commUserRating,
+        };
+      });
+
       return {
         id: script.id,
         title: script.title,
@@ -73,7 +82,7 @@ export async function GET(request: Request) {
         ratingsCount: script.ratings.length,
         userRating,
         commentsCount: script.comments.length,
-        comments: script.comments,
+        comments: formattedComments,
         isSaved,
         createdAt: script.createdAt,
       };

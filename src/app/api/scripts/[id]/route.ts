@@ -2,6 +2,62 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 
+// GET /api/scripts/[id] - Get single script details
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const user = await getCurrentUser();
+
+    const script = await prisma.script.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        author: { select: { id: true, name: true, role: true } },
+        ratings: true,
+        comments: {
+          include: { user: { select: { id: true, name: true, role: true } } },
+          orderBy: { createdAt: 'desc' },
+        },
+        savedBy: user ? { where: { userId: user.id } } : false,
+      },
+    });
+
+    if (!script) {
+      return NextResponse.json({ error: 'Скрипт не найден' }, { status: 404 });
+    }
+
+    const ratingsCount = script.ratings.length;
+    const ratingSum = script.ratings.reduce((acc, r) => acc + r.value, 0);
+    const averageRating = ratingsCount > 0 ? Number((ratingSum / ratingsCount).toFixed(1)) : 0;
+    const userRating = user ? script.ratings.find((r) => r.userId === user.id)?.value || null : null;
+    const isSaved = user ? (script.savedBy && script.savedBy.length > 0) : false;
+
+    return NextResponse.json(
+      {
+        script: {
+          ...script,
+          rating: averageRating,
+          avgRating: averageRating,
+          ratingsCount,
+          userRating,
+          isSaved,
+        },
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        },
+      }
+    );
+  } catch (error: any) {
+    console.error('Error fetching script by id:', error);
+    return NextResponse.json({ error: 'Ошибка при получении скрипта' }, { status: 500 });
+  }
+}
+
 // PUT /api/scripts/[id] - Update script (Admin or Author)
 export async function PUT(
   request: Request,

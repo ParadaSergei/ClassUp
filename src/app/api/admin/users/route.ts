@@ -17,6 +17,7 @@ export async function GET() {
         name: true,
         email: true,
         role: true,
+        isActive: true,
         createdAt: true,
         _count: {
           select: {
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Доступ запрещен' }, { status: 403 });
     }
 
-    const { name, email, password, role } = await request.json();
+    const { name, email, password, role, isActive } = await request.json();
 
     if (!name || !email || !password) {
       return NextResponse.json({ error: 'Заполните обязательные поля' }, { status: 400 });
@@ -62,13 +63,15 @@ export async function POST(request: Request) {
         name: name.trim(),
         email: email.toLowerCase().trim(),
         password: hashedPassword,
-        role: role === 'ADMIN' ? 'ADMIN' : 'TEACHER',
+        role: role === 'ADMIN' ? 'ADMIN' : 'USER',
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
       },
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
+        isActive: true,
         createdAt: true,
       },
     });
