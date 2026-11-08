@@ -71,7 +71,7 @@ body {
   scrollbar-color: var(--border-color) transparent;
 }
 
-/* Login Animated Diagonal Stripes Background (Speed halved: 2s -> 4s) */
+/* Login Animated Diagonal Stripes Background */
 .login-animated-bg {
   width: 100%;
   background: repeating-linear-gradient(
@@ -85,59 +85,12 @@ body {
   animation: move-it 4s linear infinite;
 }
 
-/* Combined Animated Gradient with Moving Stripes Overlay (Speed halved: 8s -> 16s) */
+/* Subtle, elegant non-RGB background */
 .animated-gradient-color {
   position: relative;
   width: 100%;
-  background: linear-gradient(-45deg, #ff007f, #7f00ff, #00c6ff, #00f2fe, #f59e0b, #ff4e50);
-  background-size: 400% 400%;
-  animation: gradientBG 16s ease infinite;
-  overflow: hidden;
-}
-
-/* Moving Diagonal Stripes Overlay on Top of Animated Gradient (Speed halved: 2s -> 4s) */
-.animated-gradient-color::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(255, 255, 255, 0.12),
-    rgba(255, 255, 255, 0.12) 5%,
-    rgba(0, 0, 0, 0.08) 5%,
-    rgba(0, 0, 0, 0.08) 10%
-  );
-  background-size: 100px 100px;
-  animation: move-it 4s linear infinite;
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* Ensure child elements stay above background overlay */
-.animated-gradient-color > * {
-  position: relative;
-  z-index: 2;
-}
-
-@keyframes move-it {
-  0% {
-    background-position: initial;
-  }
-  100% {
-    background-position: 100px 0px;
-  }
-}
-
-@keyframes gradientBG {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+  background-color: var(--bg-main);
+  transition: background-color 0.2s ease;
 }
 
 /* Hide Next.js floating dev indicator badge (N) */
