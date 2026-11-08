@@ -72,6 +72,15 @@ body {
 }
 
 /* Login Animated Diagonal Stripes Background */
+@keyframes move-it {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 100px 0;
+  }
+}
+
 .login-animated-bg {
   width: 100%;
   background: repeating-linear-gradient(

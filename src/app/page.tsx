@@ -146,8 +146,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Main Catalog Section with Animated Gradient Background container */}
-      <div className="animated-gradient-color flex-1 w-full py-12 px-4 sm:px-6 lg:px-8">
+      {/* Main Catalog Section with Animated Striped Background container */}
+      <div className="login-animated-bg flex-1 w-full py-12 px-4 sm:px-6 lg:px-8">
         <main className="max-w-7xl mx-auto w-full" id="catalog">
           {/* Search & Filters */}
           <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-3xl p-6 shadow-xl border-2 border-slate-200/80 dark:border-zinc-700/80 mb-8 space-y-6">
