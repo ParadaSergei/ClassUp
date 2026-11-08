@@ -108,11 +108,12 @@ export default function Header({
     }
     setIsBellOpen(false);
 
-    if (notif.scriptId) {
+    const scriptId = notif.scriptId || notif.script?.id;
+    if (scriptId) {
       if (onSelectScriptFromNotification) {
-        onSelectScriptFromNotification(notif.scriptId);
+        onSelectScriptFromNotification(scriptId);
       } else {
-        router.push(`/catalog?scriptId=${notif.scriptId}`);
+        router.push(`/?scriptId=${scriptId}`);
       }
     }
   };
@@ -213,8 +214,7 @@ export default function Header({
                       {notifications.map((n) => (
                         <div
                           key={n.id}
-                          onClick={() => handleNotificationClick(n)}
-                          className={`group relative p-3 rounded-2xl border-2 transition-all text-left cursor-pointer ${
+                          className={`group relative p-3 rounded-2xl border-2 transition-all text-left ${
                             n.isRead
                               ? 'bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-800 opacity-75'
                               : 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 shadow-xs'
@@ -222,6 +222,7 @@ export default function Header({
                         >
                           {/* Close / Delete Button in Top Right Corner */}
                           <button
+                            type="button"
                             onClick={(e) => handleDeleteNotification(e, n.id)}
                             title="Удалить уведомление"
                             className="absolute top-2.5 right-2.5 p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-colors cursor-pointer opacity-80 hover:opacity-100 z-10"
@@ -229,7 +230,12 @@ export default function Header({
                             <X className="w-3.5 h-3.5" />
                           </button>
 
-                          <div className="flex items-start gap-2.5 pr-6">
+                          {/* Clickable Card Body Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleNotificationClick(n)}
+                            className="w-full text-left flex items-start gap-2.5 pr-6 cursor-pointer focus:outline-none"
+                          >
                             <div className="p-2 rounded-xl bg-indigo-600 text-white flex-shrink-0 mt-0.5">
                               <FileText className="w-3.5 h-3.5" />
                             </div>
@@ -237,9 +243,9 @@ export default function Header({
                               <p className="text-xs font-extrabold text-slate-900 dark:text-zinc-100 line-clamp-2">
                                 {n.message}
                               </p>
-                              {n.script?.title && (
-                                <p className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 mt-1 truncate">
-                                  📌 {n.script.title}
+                              {(n.script?.title || n.scriptTitle) && (
+                                <p className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 mt-1 truncate hover:underline">
+                                  📌 {n.script?.title || n.scriptTitle}
                                 </p>
                               )}
                               <span className="text-[10px] font-semibold text-slate-400 dark:text-zinc-500 mt-1 block">
@@ -251,7 +257,7 @@ export default function Header({
                                 })}
                               </span>
                             </div>
-                          </div>
+                          </button>
                         </div>
                       ))}
                     </div>
